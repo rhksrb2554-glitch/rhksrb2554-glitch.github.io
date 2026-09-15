@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATR 포지션 계산기 (KRW / USD)</title>
+    <!-- Chart.js 및 DataLabels 플러그인 추가 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary-color: #3b82f6;
+            --accent-color: #ef4444;
+            --border-color: #e5e7eb;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1e1e24;
+                --card-bg: #2a2a32;
+                --text-color: #f3f4f6;
+                --primary-color: #60a5fa;
+                --border-color: #3f3f46;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background-color 0.3s;
+        }
+
+        .container {
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+            background-color: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 480px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        input {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+
+        .currency-toggle-box {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            display: flex;
+            background-color: var(--bg-color);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            opacity: 0.5;
+            transition: all 0.2s;
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-user-drag: none;
+            -webkit-touch-callout: none;
+        }
+
+        .toggle-btn.active {
+            background-color: var(--primary-color);
+            color: #ffffff;
+            opacity: 1;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 28px;
+            text-align: left;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            pointer-events: none;
+        }
+
+        .input-group label,
+        .input-group .input-wrapper {
+            pointer-events: auto;
+        }
+
+        .split-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .split-inputs > div {
+            pointer-events: none;
+        }
+
+        .split-inputs > div > label,
+        .split-inputs > div > .input-wrapper {
+            pointer-events: auto;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 55px 12px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: transparent;
+            color: var(--text-color);
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        input.input-short {
+            padding-right: 36px;
+        }
+
+        input:focus {
+            border-color: var(--primary-color);
+        }
+
+        .unit {
+            position: absolute;
+            right: 14px;
+            font-size: 14px;
+            opacity: 0.6;
+            pointer-events: none;
+            font-weight: 600;
+        }
+
+        .unit.unit-short {
+            right: 12px;
+        }
+
+        .divider {
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 24px 0;
+        }
+
+        .result-box {
+            background-color: rgba(59, 130, 246, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            min-height: 28px;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+            padding-top: 12px;
+            border-top: 1px dashed var(--border-color);
+        }
+
+        .result-label {
+            font-size: 14px;
+            opacity: 0.8;
+            white-space: nowrap;
+            flex-shrink: 0;
+            margin-right: 12px;
+        }
+
+        .result-value {
+            font-size: 18px;
+            font-weight: 700;
+            white-space: nowrap;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .result-value.highlight {
+            color: var(--primary-color);
+            font-size: 20px;
+        }
+        
+        .text-danger {
+            color: var(--accent-color);
+        }
+
+        .portfolio-section {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .portfolio-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            opacity: 0.9;
+        }
+
+        .add-stock-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .add-stock-row .input-wrapper {
+            flex: 1;
+        }
+
+        .add-stock-row input[type="text"]#stockName {
+            text-align: left;
+            padding-right: 14px;
+        }
+
+        .btn-add {
+            background-color: var(--primary-color);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            font-size: 22px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .btn-add:hover {
+            opacity: 0.9;
+        }
+
+        .chart-container {
+            width: 100%;
+            max-width: 280px;
+            margin: 16px auto 20px auto;
+            position: relative;
+        }
+
+        .stock-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .stock-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+
+        .stock-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow: hidden;
+        }
+
+        .stock-name {
+            font-weight: 700;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            max-width: 120px;
+        }
+
+        .stock-amount {
+            font-size: 13px;
+            opacity: 0.7;
+        }
+
+        .stock-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .stock-percent {
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .btn-delete {
+            background: none;
+            border: none;
+            color: var(--accent-color);
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            line-height: 1;
+            transition: background 0.2s;
+        }
+
+        .btn-delete:hover {
+            background-color: rgba(239, 68, 68, 0.15);
+        }
+
+        .guide-box {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .guide-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            opacity: 0.9;
+        }
+
+        .guide-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 13px;
+            line-height: 1.6;
+            opacity: 0.8;
+        }
+
+        .guide-list li {
+            margin-bottom: 8px;
+        }
+
+        .guide-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .guide-list strong {
+            color: var(--text-color);
+            font-weight: 600;
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            .container { padding: 24px 14px; }
+            .currency-toggle-box { top: 22px; right: 14px; }
+            .split-inputs { gap: 8px; }
+            input { padding: 10px 45px 10px 10px; font-size: 15px; }
+            input.input-short { padding-right: 30px; }
+            .unit { right: 10px; font-size: 12px; }
+            .unit.unit-short { right: 8px; }
+            label { font-size: 13px; margin-bottom: 6px; }
+            .guide-list { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📊 포지션 사이징</h2>
+    
+    <div class="currency-toggle-box">
+        <button id="btnUsd" class="toggle-btn active" type="button" draggable="false">USD</button>
+        <button id="btnKrw" class="toggle-btn" type="button" draggable="false">KRW</button>
+    </div>
+    
+    <div class="input-group">
+        <div class="split-inputs">
+            <div>
+                <label>포지션 투자금</label>
+                <div class="input-wrapper">
+                    <input type="text" id="positionInvestment" inputmode="numeric" value="0">
+                    <span class="unit" id="positionInvestmentUnit">USD</span>
+                </div>
+            </div>
+            <div>
+                <label>수익금</label>
+                <div class="input-wrapper">
+                    <input type="text" id="profitAmount" inputmode="decimal" value="0">
+                    <span class="unit" id="profitAmountUnit">USD</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>보유 자금</label>
+        <div class="input-wrapper">
+            <input type="text" id="totalCapital" inputmode="numeric" value="0">
+            <span class="unit" id="inputUnit">USD</span>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>총 자금 대비 감수할 리스크 (총손실)</label>
+        <div class="input-wrapper">
+            <input type="text" id="riskPercent" inputmode="decimal" class="input-short" value="1">
+            <span class="unit unit-short">%</span>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>현재 자산의 ATR</label>
+        <div class="input-wrapper">
+            <input type="text" id="atrPercent" inputmode="decimal" class="input-short" value="6.5">
+            <span class="unit unit-short">%</span>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label>ATR 배수 (손절 폭)</label>
+        <div class="input-wrapper">
+            <input type="text" id="atrMultiplier" inputmode="decimal" class="input-short" value="2">
+            <span class="unit unit-short">배</span>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="result-box">
+        <div class="result-item">
+            <span class="result-label">계산된 총 자금</span>
+            <span class="result-value" id="calculatedTotalCapital">0</span>
+        </div>
+        <div class="result-item">
+            <span class="result-label">최종 계산된 손절라인</span>
+            <span class="result-value text-danger" id="stopLossPercent">0.00 %</span>
+        </div>
+        <div class="result-item">
+            <span class="result-label">허용 최대 손실액</span>
+            <span class="result-value" id="maxLossAmount">0</span>
+        </div>
+        <div class="result-item">
+            <span class="result-label">적정 포지션 비중</span>
+            <span class="result-value highlight" id="positionPercent">0.00 %</span>
+        </div>
+        <div class="result-item">
+            <span class="result-label">실제 진입 금액</span>
+            <span class="result-value highlight" id="positionAmount">0</span>
+        </div>
+    </div>
+
+    <div class="portfolio-section">
+        <div class="portfolio-title">🍰 보유 종목 비중</div>
+        <div class="add-stock-row">
+            <div class="input-wrapper" style="flex: 1.1;">
+                <input type="text" id="stockName" placeholder="종목명">
+            </div>
+            <div class="input-wrapper" style="flex: 1.3;">
+                <input type="text" id="stockAmount" inputmode="numeric" placeholder="매수 금액" value="0">
+                <span class="unit" id="stockAmountUnit">USD</span>
+            </div>
+            <button type="button" class="btn-add" id="btnAddStock" onclick="addStock()">+</button>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="portfolioChart"></canvas>
+        </div>
+
+        <ul class="stock-list" id="stockList"></ul>
+    </div>
+
+    <div class="guide-box">
+        <div class="guide-title">📖 사용 가이드</div>
+        <ul class="guide-list">
+            <li><strong>계산된 총 자금</strong>: (포지션 투자금 - 수익금 + 보유 자금) 공식을 통해 현재 계좌의 실질 총 순자산을 도출합니다. (수익이 손실일 경우 `-` 붙여 입력)</li>
+            <li><strong>종목 비중 차트</strong>: 등록된 각 종목의 매수 금액이 '계산된 총 자금'에서 차지하는 비율(%)을 실시간 도넛 차트 및 하단 범례에서 마우스 조작 없이 한번에 확인합니다.</li>
+            <li><strong>최종 손절라인</strong>: 입력한 `ATR(%) × 배수`로 계산되며, 변동성에 맞춘 최적의 손절 폭을 의미합니다.</li>
+            <li><strong>허용 최대 손실액</strong>: 총 자금 중 이번 매매로 감수할 리스크(%) 기준 실제 잃어도 되는 금액입니다.</li>
+            <li><strong>적정 포지션 & 진입 금액</strong>: 손절 라인에 도달하더라도 설정한 리스크 금액 이하로만 손실이 제한되도록 안내하는 진입 규모입니다.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    Chart.register(ChartDataLabels);
+
+    let currentCurrency = 'USD';
+    let portfolioItems = [];
+    let donutChartInstance = null;
+
+    const defaults = {
+        USD: { value: 0, step: 100 },
+        KRW: { value: 0, step: 10000 }
+    };
+
+    const colorPalette = [
+        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+        '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', 
+        '#f97316', '#6366f1'
+    ];
+
+    // 테마별 차트 텍스트 컬러 반환 함수
+    function getChartTextColor() {
+        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3f4f6' : '#333333';
+    }
+
+    function formatNumberInput(input) {
+        let raw = input.value;
+        let isNegative = (input.id === 'profitAmount') && raw.includes('-');
+        let value = raw.replace(/,/g, '').replace(/[^\d.]/g, '');
+
+        if (value === '') {
+            input.value = isNegative ? '- ' : '';
+            return;
+        }
+
+        const firstDot = value.indexOf('.');
+        let integerPart = firstDot >= 0 ? value.slice(0, firstDot) : value;
+        let decimalPart = firstDot >= 0 ? value.slice(firstDot + 1).replace(/\./g, '') : '';
+
+        integerPart = integerPart.replace(/^0+(?=\d)/, '');
+        if (integerPart === '') {
+            integerPart = '0';
+        }
+
+        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+        input.value = (isNegative ? '- ' : '') + integerPart + (firstDot >= 0 ? '.' + decimalPart : '');
+    }
+
+    function setupNumberFormatting() {
+        const ids = [
+            'positionInvestment',
+            'profitAmount',
+            'totalCapital',
+            'riskPercent',
+            'atrPercent',
+            'atrMultiplier',
+            'stockAmount'
+        ];
+
+        ids.forEach(id => {
+            const input = document.getElementById(id);
+            if (!input) return;
+
+            input.addEventListener('focus', () => {
+                const raw = input.value.replace(/,/g, '').replace(/\s+/g, '').trim();
+                if (raw === '0') {
+                    input.value = '';
+                }
+            });
+
+            input.addEventListener('input', () => {
+                if (['riskPercent', 'atrPercent', 'atrMultiplier'].includes(id)) {
+                    let cleaned = input.value.replace(/-/g, '').replace(/[^\d.]/g, '');
+                    const firstDot = cleaned.indexOf('.');
+                    if (firstDot >= 0) {
+                        cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+                    }
+                    if (input.value !== cleaned) {
+                        input.value = cleaned;
+                    }
+                } else if (['positionInvestment', 'profitAmount', 'totalCapital', 'stockAmount'].includes(id)) {
+                    const oldValue = input.value;
+                    const oldCursor = input.selectionStart ?? oldValue.length;
+
+                    const digitsBeforeCursor = oldValue
+                        .slice(0, oldCursor)
+                        .replace(/,/g, '')
+                        .replace(/[^\d.-]/g, '').length;
+
+                    formatNumberInput(input);
+
+                    let newCursor = 0;
+                    let digitCount = 0;
+
+                    while (newCursor < input.value.length && digitCount < digitsBeforeCursor) {
+                        if (/[\d.-]/.test(input.value[newCursor])) {
+                            digitCount++;
+                        }
+                        newCursor++;
+                    }
+
+                    input.setSelectionRange(newCursor, newCursor);
+                }
+
+                saveInputs();
+                calculate();
+            });
+
+            input.addEventListener('blur', () => {
+                const trimmed = input.value.replace(/,/g, '').replace(/\s+/g, '').trim();
+                if (trimmed === '' || trimmed === '-') {
+                    input.value = '0';
+                } else if (['positionInvestment', 'profitAmount', 'totalCapital', 'stockAmount'].includes(id)) {
+                    formatNumberInput(input);
+                }
+
+                saveInputs();
+                calculate();
+            });
+        });
+    }
+
+    function calculateTotalCapitalValue() {
+        const positionInvestment = Math.max(0, parseFloat(document.getElementById('positionInvestment').value.replace(/,/g, '')) || 0);
+        const profitAmount = parseFloat(document.getElementById('profitAmount').value.replace(/,/g, '').replace(/\s+/g, '')) || 0;
+        const holdingCapital = Math.max(0, parseFloat(document.getElementById('totalCapital').value.replace(/,/g, '')) || 0);
+
+        return Math.max(0, positionInvestment - profitAmount + holdingCapital);
+    }
+
+    function calculate() {
+        const totalCapital = calculateTotalCapitalValue();
+
+        const riskPercent = Math.max(0, parseFloat(document.getElementById('riskPercent').value) || 0);
+        const atrPercent = Math.max(0, parseFloat(document.getElementById('atrPercent').value) || 0);
+        const atrMultiplier = Math.max(0, parseFloat(document.getElementById('atrMultiplier').value) || 0);
+
+        const stopLossPercent = atrPercent * atrMultiplier;
+        const maxLossAmount = totalCapital * (riskPercent / 100);
+
+        let positionPercent = 0;
+        let positionAmount = 0;
+
+        if (stopLossPercent > 0) {
+            positionPercent = (riskPercent / stopLossPercent) * 100;
+            positionAmount = totalCapital * (positionPercent / 100);
+        }
+
+        document.getElementById('stopLossPercent').innerText = stopLossPercent.toFixed(2) + ' %';
+
+        const positionElement = document.getElementById('positionPercent');
+        positionElement.innerText = positionPercent.toFixed(2) + ' %' + (positionPercent > 100 ? ' (레버리지 필요)' : '');
+
+        if (currentCurrency === 'USD') {
+            const usdOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+            document.getElementById('calculatedTotalCapital').innerText = '$ ' + totalCapital.toLocaleString(undefined, usdOptions);
+            document.getElementById('maxLossAmount').innerText = '$ ' + maxLossAmount.toLocaleString(undefined, usdOptions);
+            document.getElementById('positionAmount').innerText = '$ ' + positionAmount.toLocaleString(undefined, usdOptions);
+        } else {
+            document.getElementById('calculatedTotalCapital').innerText = '₩ ' + Math.round(totalCapital).toLocaleString('ko-KR');
+            document.getElementById('maxLossAmount').innerText = '₩ ' + Math.round(maxLossAmount).toLocaleString('ko-KR');
+            document.getElementById('positionAmount').innerText = '₩ ' + Math.round(positionAmount).toLocaleString('ko-KR');
+        }
+
+        updatePortfolioUI(totalCapital);
+    }
+
+    /* --- 도넛 차트 및 종목 관리 로직 --- */
+    function initChart() {
+        const ctx = document.getElementById('portfolioChart').getContext('2d');
+        donutChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    backgroundColor: colorPalette,
+                    borderWidth: 1,
+                    borderColor: 'transparent'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    datalabels: {
+                        color: '#ffffff',
+                        font: {
+                            weight: 'bold',
+                            size: 11
+                        },
+                        formatter: (value, context) => {
+                            const total = context.chart._totalCapital || 1;
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return percentage >= 3 ? `${percentage}%` : '';
+                        },
+                        textShadowColor: 'rgba(0, 0, 0, 0.6)',
+                        textShadowBlur: 4
+                    },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            boxWidth: 10,
+                            padding: 8,
+                            font: { size: 11 },
+                            color: getChartTextColor(),
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    const total = chart._totalCapital || 1;
+                                    const textColor = getChartTextColor();
+                                    return data.labels.map((label, i) => {
+                                        const val = data.datasets[0].data[i];
+                                        const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                                        return {
+                                            text: `${label} (${pct}%)`,
+                                            fillStyle: colorPalette[i % colorPalette.length],
+                                            fontColor: textColor,
+                                            hidden: !chart.getDataVisibility(i),
+                                            index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const val = context.raw || 0;
+                                const total = context.chart._totalCapital || 1;
+                                const percentage = total > 0 ? ((val / total) * 100).toFixed(2) : 0;
+                                return ` ${context.label}: ${val.toLocaleString()} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // OS 시스템 테마 변경 시 동적 감지 및 차트 업데이트
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (donutChartInstance) {
+                    donutChartInstance.options.plugins.legend.labels.color = getChartTextColor();
+                    donutChartInstance.update();
+                }
+            });
+        }
+    }
+
+    function addStock() {
+        const nameInput = document.getElementById('stockName');
+        const amountInput = document.getElementById('stockAmount');
+
+        const name = nameInput.value.trim();
+        const amount = parseFloat(amountInput.value.replace(/,/g, '')) || 0;
+
+        if (!name) {
+            alert('종목명을 입력해 주세요.');
+            nameInput.focus();
+            return;
+        }
+
+        if (amount <= 0) {
+            alert('올바른 매수 금액을 입력해 주세요.');
+            amountInput.focus();
+            return;
+        }
+
+        portfolioItems.push({
+            id: Date.now(),
+            name: name,
+            amount: amount
+        });
+
+        nameInput.value = '';
+        amountInput.value = '0';
+
+        savePortfolio();
+        calculate();
+    }
+
+    function deleteStock(id) {
+        portfolioItems = portfolioItems.filter(item => item.id !== id);
+        savePortfolio();
+        calculate();
+    }
+
+    function updatePortfolioUI(totalCapital) {
+        if (!donutChartInstance) return;
+
+        const labels = portfolioItems.map(item => item.name);
+        const data = portfolioItems.map(item => item.amount);
+
+        const totalInvested = data.reduce((sum, val) => sum + val, 0);
+        const remainingCash = Math.max(0, totalCapital - totalInvested);
+
+        if (remainingCash > 0) {
+            labels.push('미할당/잔여 자금');
+            data.push(remainingCash);
+        }
+
+        donutChartInstance._totalCapital = totalCapital;
+        donutChartInstance.data.labels = labels;
+        donutChartInstance.data.datasets[0].data = data;
+        donutChartInstance.options.plugins.legend.labels.color = getChartTextColor();
+        donutChartInstance.update();
+
+        renderStockList(totalCapital);
+    }
+
+    function renderStockList(totalCapital) {
+        const listEl = document.getElementById('stockList');
+        listEl.innerHTML = '';
+
+        portfolioItems.forEach(item => {
+            const percentage = totalCapital > 0 ? ((item.amount / totalCapital) * 100).toFixed(2) : '0.00';
+            const formattedAmount = currentCurrency === 'USD'
+                ? '$ ' + item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '₩ ' + Math.round(item.amount).toLocaleString('ko-KR');
+
+            const li = document.createElement('li');
+            li.className = 'stock-item';
+            li.innerHTML = `
+                <div class="stock-info">
+                    <span class="stock-name">${escapeHtml(item.name)}</span>
+                    <span class="stock-amount">${formattedAmount}</span>
+                </div>
+                <div class="stock-right">
+                    <span class="stock-percent">${percentage}%</span>
+                    <button class="btn-delete" onclick="deleteStock(${item.id})" title="삭제">✕</button>
+                </div>
+            `;
+            listEl.appendChild(li);
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/[&<>"']/g, function(m) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+        });
+    }
+
+    function stockStorageKey(currency) {
+        return 'atrPositionSizing_stocks_' + currency;
+    }
+
+    function savePortfolio() {
+        try {
+            localStorage.setItem(stockStorageKey(currentCurrency), JSON.stringify(portfolioItems));
+        } catch (e) {
+            console.warn('포트폴리오 저장 실패:', e);
+        }
+    }
+
+    function loadPortfolio() {
+        try {
+            const saved = localStorage.getItem(stockStorageKey(currentCurrency));
+            portfolioItems = saved ? JSON.parse(saved) : [];
+        } catch (e) {
+            portfolioItems = [];
+        }
+    }
+
+    document.addEventListener('dragstart', event => {
+        if (!event.target.matches('input')) {
+            event.preventDefault();
+        }
+    });
+
+    const inputIds = [
+        'positionInvestment',
+        'profitAmount',
+        'totalCapital',
+        'riskPercent',
+        'atrPercent',
+        'atrMultiplier'
+    ];
+
+    function storageKey(currency, id) {
+        return 'atrPositionSizing_' + currency + '_' + id;
+    }
+
+    function saveInputs() {
+        inputIds.forEach(id => {
+            const element = document.getElementById(id);
+            const key = storageKey(currentCurrency, id);
+
+            try {
+                localStorage.setItem(key, element.value);
+            } catch (e) {
+                console.warn('localStorage 저장 실패:', e);
+            }
+
+            try {
+                document.cookie =
+                    key + '=' + encodeURIComponent(element.value) +
+                    '; max-age=31536000; path=/';
+            } catch (e) {
+                console.warn('cookie 저장 실패:', e);
+            }
+        });
+
+        try {
+            localStorage.setItem('atrPositionSizing_currency', currentCurrency);
+        } catch (e) {
+            console.warn('통화 저장 실패:', e);
+        }
+    }
+
+    function getSavedValue(currency, id) {
+        const key = storageKey(currency, id);
+        let value = null;
+
+        try {
+            value = localStorage.getItem(key);
+        } catch (e) {
+            value = null;
+        }
+
+        if (value === null) {
+            try {
+                const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const match = document.cookie.match(
+                    new RegExp('(?:^|; )' + escapedKey + '=([^;]*)')
+                );
+
+                if (match) {
+                    value = decodeURIComponent(match[1]);
+                }
+            } catch (e) {
+                value = null;
+            }
+        }
+
+        return value;
+    }
+
+    function loadInputs() {
+        let savedCurrency = null;
+
+        try {
+            savedCurrency = localStorage.getItem('atrPositionSizing_currency');
+        } catch (e) {
+            savedCurrency = null;
+        }
+
+        if (savedCurrency !== 'USD' && savedCurrency !== 'KRW') {
+            savedCurrency = currentCurrency;
+        }
+
+        currentCurrency = savedCurrency;
+
+        const btnUsd = document.getElementById('btnUsd');
+        const btnKrw = document.getElementById('btnKrw');
+        const inputUnit = document.getElementById('inputUnit');
+        const positionInvestmentUnit = document.getElementById('positionInvestmentUnit');
+        const profitAmountUnit = document.getElementById('profitAmountUnit');
+        const stockAmountUnit = document.getElementById('stockAmountUnit');
+        const totalCapitalInput = document.getElementById('totalCapital');
+
+        if (currentCurrency === 'USD') {
+            btnUsd.classList.add('active');
+            btnKrw.classList.remove('active');
+            positionInvestmentUnit.innerText = 'USD';
+            profitAmountUnit.innerText = 'USD';
+            inputUnit.innerText = 'USD';
+            stockAmountUnit.innerText = 'USD';
+            totalCapitalInput.step = defaults.USD.step;
+        } else {
+            btnKrw.classList.add('active');
+            btnUsd.classList.remove('active');
+            positionInvestmentUnit.innerText = 'KRW';
+            profitAmountUnit.innerText = 'KRW';
+            inputUnit.innerText = 'KRW';
+            stockAmountUnit.innerText = 'KRW';
+            totalCapitalInput.step = defaults.KRW.step;
+        }
+
+        inputIds.forEach(id => {
+            const savedValue = getSavedValue(currentCurrency, id);
+
+            if (savedValue !== null) {
+                document.getElementById(id).value = savedValue;
+            }
+        });
+
+        loadPortfolio();
+    }
+
+    function setCurrency(currency) {
+        if (currency !== 'USD' && currency !== 'KRW') return;
+        if (currency === currentCurrency) return;
+
+        saveInputs();
+        savePortfolio();
+
+        currentCurrency = currency;
+
+        const btnUsd = document.getElementById('btnUsd');
+        const btnKrw = document.getElementById('btnKrw');
+        const inputUnit = document.getElementById('inputUnit');
+        const positionInvestmentUnit = document.getElementById('positionInvestmentUnit');
+        const profitAmountUnit = document.getElementById('profitAmountUnit');
+        const stockAmountUnit = document.getElementById('stockAmountUnit');
+        const totalCapitalInput = document.getElementById('totalCapital');
+
+        if (currency === 'USD') {
+            btnUsd.classList.add('active');
+            btnKrw.classList.remove('active');
+            positionInvestmentUnit.innerText = 'USD';
+            profitAmountUnit.innerText = 'USD';
+            inputUnit.innerText = 'USD';
+            stockAmountUnit.innerText = 'USD';
+            totalCapitalInput.step = defaults.USD.step;
+        } else {
+            btnKrw.classList.add('active');
+            btnUsd.classList.remove('active');
+            positionInvestmentUnit.innerText = 'KRW';
+            profitAmountUnit.innerText = 'KRW';
+            inputUnit.innerText = 'KRW';
+            stockAmountUnit.innerText = 'KRW';
+            totalCapitalInput.step = defaults.KRW.step;
+        }
+
+        inputIds.forEach(id => {
+            const savedValue = getSavedValue(currency, id);
+
+            if (savedValue !== null) {
+                document.getElementById(id).value = savedValue;
+            } else {
+                if (id === 'totalCapital') {
+                    document.getElementById(id).value = defaults[currency].value;
+                } else {
+                    document.getElementById(id).value =
+                        id === 'riskPercent' ? 1 :
+                        id === 'atrPercent' ? 6.5 :
+                        id === 'atrMultiplier' ? 2 : 0;
+                }
+            }
+        });
+
+        loadPortfolio();
+
+        try {
+            localStorage.setItem('atrPositionSizing_currency', currency);
+        } catch (e) {
+            console.warn('통화 저장 실패:', e);
+        }
+
+        calculate();
+    }
+
+    function bindEvents() {
+        inputIds.forEach(id => {
+            const element = document.getElementById(id);
+
+            element.addEventListener('input', () => {
+                calculate();
+                saveInputs();
+            });
+
+            element.addEventListener('change', () => {
+                calculate();
+                saveInputs();
+            });
+        });
+
+        document.getElementById('btnUsd').addEventListener('click', () => setCurrency('USD'));
+        document.getElementById('btnKrw').addEventListener('click', () => setCurrency('KRW'));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initChart();
+        bindEvents();
+        loadInputs();
+        setupNumberFormatting();
+
+        formatNumberInput(document.getElementById('positionInvestment'));
+        formatNumberInput(document.getElementById('profitAmount'));
+        formatNumberInput(document.getElementById('totalCapital'));
+        formatNumberInput(document.getElementById('stockAmount'));
+
+        calculate();
+    });
+</script>
+</body>
+</html>
