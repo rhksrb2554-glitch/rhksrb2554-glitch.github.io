@@ -553,7 +553,7 @@
     </div>
 
     <div class="portfolio-section">
-        <div class="portfolio-title">🍰 보유 종목 비중 (도넛 차트)</div>
+        <div class="portfolio-title">🍰 보유 종목 비중</div>
         <div class="add-stock-row">
             <div class="input-wrapper" style="flex: 1.1;">
                 <input type="text" id="stockName" placeholder="종목명">
@@ -576,9 +576,8 @@
         <div class="guide-title">📖 사용 가이드</div>
         <ul class="guide-list">
             <li><strong>계산된 총 자금</strong>: (포지션 투자금 - 수익금 + 보유 자금) 공식을 통해 현재 계좌의 실질 총 순자산을 도출합니다. (수익이 손실일 경우 `-` 붙여 입력)</li>
-            <li><strong>종목 비중 차트</strong>: 등록된 각 종목의 비중이 큰 순서대로 차트에 자동 정렬되어 표시됩니다.</li>
-            <li><strong>목록 순서 변경</strong>: 우측의 `☰` 핸들을 끌어서 항목들 사이에 대충 놓으면 파란색 가로선 위치로 순서가 유연하게 변경됩니다.</li>
             <li><strong>최종 손절라인</strong>: 입력한 `ATR(%) × 배수`로 계산되며, 변동성에 맞춘 최적의 손절 폭을 의미합니다.</li>
+            <li><strong>허용 최대 손실액</strong>: 총 자금 중 이번 매매로 감수할 리스크(%) 기준 실제 잃어도 되는 금액입니다.</li>
             <li><strong>적정 포지션 & 진입 금액</strong>: 손절 라인에 도달하더라도 설정한 리스크 금액 이하로만 손실이 제한되도록 안내하는 진입 규모입니다.</li>
         </ul>
     </div>
@@ -961,7 +960,6 @@
         setupDragAndDropItemEvents();
     }
 
-    // 커서 Y 위치를 기준으로 중심점을 계산하는 핵심 판정 함수
     function getDragAfterElement(container, y) {
         const draggableElements = [...container.querySelectorAll('.stock-item:not(.dragging)')];
 
@@ -990,15 +988,16 @@
         }
     }
 
-    // 리스트 단위 전역 1회만 등록하는 드롭 이벤트 (중복 바인딩 방지 & 100% 드롭 보장)
     function initDragAndDropListEvents() {
         const list = document.getElementById('stockList');
         const indicator = createDropIndicator();
 
-        // PC 드래그 오버
-        list.addEventListener('dragover', (e) => {
-            e.preventDefault();
+        document.addEventListener('dragover', (e) => {
             if (draggedIndex === null) return;
+            e.preventDefault();
+            if (e.dataTransfer) {
+                e.dataTransfer.dropEffect = 'move';
+            }
 
             const afterElement = getDragAfterElement(list, e.clientY);
             if (afterElement == null) {
@@ -1008,10 +1007,9 @@
             }
         });
 
-        // PC 드롭 (가로줄선, 여백, 항목 등 어떤 위치에 놓아도 정확히 이동)
-        list.addEventListener('drop', (e) => {
-            e.preventDefault();
+        document.addEventListener('drop', (e) => {
             if (draggedIndex === null) return;
+            e.preventDefault();
 
             const afterElement = getDragAfterElement(list, e.clientY);
             const remainingItems = [...list.querySelectorAll('.stock-item:not(.dragging)')];
@@ -1026,14 +1024,16 @@
             const movedItem = portfolioItems.splice(draggedIndex, 1)[0];
             portfolioItems.splice(targetIndex, 0, movedItem);
 
+            const draggingItem = list.querySelector('.stock-item.dragging');
+            if (draggingItem) draggingItem.classList.remove('dragging');
+
             removeDropIndicator();
             draggedIndex = null;
             savePortfolio();
             calculate();
         });
 
-        // 모바일 터치이동
-        list.addEventListener('touchmove', (e) => {
+        document.addEventListener('touchmove', (e) => {
             if (draggedIndex === null) return;
             const touchLocation = e.touches[0];
             const afterElement = getDragAfterElement(list, touchLocation.clientY);
@@ -1045,8 +1045,7 @@
             }
         }, { passive: true });
 
-        // 모바일 터치 종료
-        list.addEventListener('touchend', (e) => {
+        document.addEventListener('touchend', (e) => {
             if (draggedIndex === null) return;
             const touchLocation = e.changedTouches[0];
             const afterElement = getDragAfterElement(list, touchLocation.clientY);
@@ -1073,7 +1072,6 @@
         });
     }
 
-    // 아이템별 개별 이벤트 (렌더링 시 시점 등록)
     function setupDragAndDropItemEvents() {
         const list = document.getElementById('stockList');
         const items = list.querySelectorAll('.stock-item');
