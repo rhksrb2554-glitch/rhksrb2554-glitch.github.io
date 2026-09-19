@@ -259,6 +259,7 @@
         .add-stock-row input[type="text"]#stockName {
             text-align: left;
             padding-right: 14px;
+            text-transform: uppercase; /* 대문자로 자동 표시 */
         }
 
         .btn-add {
@@ -706,6 +707,14 @@
                 calculate();
             });
         });
+
+        // 종목명 입력 시 입력창 값을 대문자로 실시간 변환
+        const stockNameInput = document.getElementById('stockName');
+        if (stockNameInput) {
+            stockNameInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.toUpperCase();
+            });
+        }
     }
 
     function calculateTotalCapitalValue() {
@@ -840,7 +849,8 @@
         const nameInput = document.getElementById('stockName');
         const amountInput = document.getElementById('stockAmount');
 
-        const name = nameInput.value.trim();
+        // 입력받은 종목명을 무조건 대문자로 변환
+        const name = nameInput.value.trim().toUpperCase();
         const amount = parseFloat(amountInput.value.replace(/,/g, '')) || 0;
 
         if (!name) {
@@ -874,7 +884,9 @@
 
         const newName = prompt('수정할 종목명을 입력해 주세요:', item.name);
         if (newName === null) return;
-        const trimmedName = newName.trim();
+        
+        // 수정할 종목명을 무조건 대문자로 변환
+        const trimmedName = newName.trim().toUpperCase();
         if (!trimmedName) {
             alert('종목명을 입력해 주세요.');
             return;
@@ -899,7 +911,6 @@
         const item = portfolioItems.find(i => i.id === id);
         if (!item) return;
 
-        // 확인 창 띄우기
         if (!confirm(`'${item.name}' 종목을 정말 삭제하시겠습니까?`)) {
             return;
         }
