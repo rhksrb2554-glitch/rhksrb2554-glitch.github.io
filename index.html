@@ -247,19 +247,63 @@
         }
 
         .add-stock-row {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) 44px;
+            grid-template-rows: 44px 44px;
             gap: 8px;
             margin-bottom: 16px;
+            align-items: center;
         }
 
         .add-stock-row .input-wrapper {
-            flex: 1;
+            min-width: 0;
+        }
+
+        .stock-name-wrapper {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .stock-amount-wrapper {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .stock-industry-wrapper {
+            grid-column: 1 / 3;
+            grid-row: 2;
+        }
+
+        .add-stock-row .btn-add {
+            grid-column: 3;
+            grid-row: 1 / 3;
+            align-self: center;
+            justify-self: stretch;
+            height: 44px;
+        }
+
+        .add-stock-row input[type="text"]#stockName,
+        .add-stock-row input[type="text"]#stockIndustry {
+            text-align: left;
+            padding-right: 14px;
         }
 
         .add-stock-row input[type="text"]#stockName {
+            text-transform: uppercase;
+        }
+
+        .add-stock-row .input-wrapper {
+            min-width: 0;
+        }
+
+        .add-stock-row input[type="text"]#stockName,
+        .add-stock-row input[type="text"]#stockIndustry {
             text-align: left;
             padding-right: 14px;
-            text-transform: uppercase; /* 대문자로 자동 표시 */
+        }
+
+        .add-stock-row input[type="text"]#stockName {
+            text-transform: uppercase;
         }
 
         .btn-add {
@@ -332,12 +376,30 @@
             overflow: hidden;
         }
 
+        .stock-main-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            gap: 2px;
+        }
+
         .stock-name {
             font-weight: 700;
             white-space: nowrap;
             text-overflow: ellipsis;
             overflow: hidden;
             max-width: 120px;
+        }
+
+        .stock-industry-list {
+            font-size: 10px;
+            opacity: 0.3;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            min-width: 70px;
+            max-width: 130px;
+            text-align: center;
         }
 
         .stock-amount {
@@ -458,6 +520,10 @@
             .container { padding: 24px 14px; }
             .currency-toggle-box { top: 22px; right: 14px; }
             .split-inputs { gap: 8px; }
+            .add-stock-row {
+                grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) 44px;
+                grid-template-rows: 44px 44px;
+            }
             input { padding: 10px 45px 10px 10px; font-size: 15px; }
             input.input-short { padding-right: 30px; }
             .unit { right: 10px; font-size: 12px; }
@@ -556,12 +622,15 @@
     <div class="portfolio-section">
         <div class="portfolio-title">🍰 보유 종목 비중</div>
         <div class="add-stock-row">
-            <div class="input-wrapper" style="flex: 1.1;">
+            <div class="input-wrapper stock-name-wrapper">
                 <input type="text" id="stockName" placeholder="종목명">
             </div>
-            <div class="input-wrapper" style="flex: 1.3;">
+            <div class="input-wrapper stock-amount-wrapper">
                 <input type="text" id="stockAmount" inputmode="numeric" placeholder="매수 금액" value="0">
                 <span class="unit" id="stockAmountUnit">USD</span>
+            </div>
+            <div class="input-wrapper stock-industry-wrapper">
+                <input type="text" id="stockIndustry" placeholder="산업명">
             </div>
             <button type="button" class="btn-add" id="btnAddStock" onclick="addStock()">+</button>
         </div>
@@ -847,10 +916,11 @@
 
     function addStock() {
         const nameInput = document.getElementById('stockName');
+        const industryInput = document.getElementById('stockIndustry');
         const amountInput = document.getElementById('stockAmount');
 
-        // 입력받은 종목명을 무조건 대문자로 변환
         const name = nameInput.value.trim().toUpperCase();
+        const industry = industryInput.value.trim();
         const amount = parseFloat(amountInput.value.replace(/,/g, '')) || 0;
 
         if (!name) {
@@ -868,10 +938,12 @@
         portfolioItems.push({
             id: Date.now(),
             name: name,
+            industry: industry,
             amount: amount
         });
 
         nameInput.value = '';
+        industryInput.value = '';
         amountInput.value = '0';
 
         savePortfolio();
@@ -884,16 +956,19 @@
 
         const newName = prompt('수정할 종목명을 입력해 주세요:', item.name);
         if (newName === null) return;
-        
-        // 수정할 종목명을 무조건 대문자로 변환
+
         const trimmedName = newName.trim().toUpperCase();
         if (!trimmedName) {
             alert('종목명을 입력해 주세요.');
             return;
         }
 
+        const newIndustry = prompt('수정할 산업명을 입력해 주세요:', item.industry || '');
+        if (newIndustry === null) return;
+
         const newAmountStr = prompt('수정할 매수 금액을 입력해 주세요:', item.amount);
         if (newAmountStr === null) return;
+
         const newAmount = parseFloat(newAmountStr.replace(/,/g, '')) || 0;
         if (newAmount <= 0) {
             alert('올바른 매수 금액을 입력해 주세요.');
@@ -901,6 +976,7 @@
         }
 
         item.name = trimmedName;
+        item.industry = newIndustry.trim();
         item.amount = newAmount;
 
         savePortfolio();
@@ -962,8 +1038,11 @@
 
             li.innerHTML = `
                 <div class="stock-info">
-                    <span class="stock-name">${escapeHtml(item.name)}</span>
+                    <div class="stock-main-info">
+                        <span class="stock-name">${escapeHtml(item.name)}</span>
+                    </div>
                     <span class="stock-amount">${formattedAmount}</span>
+                    <span class="stock-industry-list">${escapeHtml(item.industry || '')}</span>
                 </div>
                 <div class="stock-right">
                     <span class="stock-percent">${percentage}%</span>
