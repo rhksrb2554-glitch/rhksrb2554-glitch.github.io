@@ -344,7 +344,7 @@
         .industry-bar-section { margin: 4px 0 20px 0; }
         .industry-bar-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; opacity: 0.75; }
         .industry-bar { width: 100%; height: 24px; display: flex; overflow: hidden; border-radius: 6px; background-color: var(--border-color); }
-        .industry-bar-segment { height: 100%; display: flex; align-items: center; justify-content: center; min-width: 0; color: #fff; font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: width 0.25s ease; cursor: default; }
+        .industry-bar-segment { height: 100%; display: flex; align-items: center; justify-content: center; min-width: 0; color: #fff; font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: width 0.25s ease; cursor: help; }
         .industry-bar-segment span { overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
         .industry-legend { display: flex; flex-wrap: wrap; gap: 5px 10px; margin-top: 7px; }
         .industry-legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; opacity: 0.75; white-space: nowrap; }
@@ -654,13 +654,13 @@
             <canvas id="portfolioChart"></canvas>
         </div>
 
+        <ul class="stock-list" id="stockList"></ul>
+
         <div class="industry-bar-section">
             <div class="industry-bar-title">산업별 비중</div>
             <div class="industry-bar" id="industryBar"></div>
             <div class="industry-legend" id="industryLegend"></div>
         </div>
-
-        <ul class="stock-list" id="stockList"></ul>
     </div>
 
     <div class="guide-box">
@@ -696,6 +696,8 @@
         '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', 
         '#f97316', '#6366f1'
     ];
+
+    const unallocatedColor = '#6b7280';
 
     function getChartTextColor() {
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3f4f6' : '#333333';
@@ -900,7 +902,9 @@
                                         const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
                                         return {
                                             text: `${label} (${pct}%)`,
-                                            fillStyle: colorPalette[i % colorPalette.length],
+                                            fillStyle: label === '미할당/잔여 자금'
+                                                ? unallocatedColor
+                                                : colorPalette[i % colorPalette.length],
                                             fontColor: textColor,
                                             hidden: !chart.getDataVisibility(i),
                                             index: i
@@ -1036,6 +1040,9 @@
         donutChartInstance._totalCapital = totalCapital;
         donutChartInstance.data.labels = labels;
         donutChartInstance.data.datasets[0].data = data;
+        donutChartInstance.data.datasets[0].backgroundColor = labels.map((label, i) =>
+            label === '미할당/잔여 자금' ? unallocatedColor : colorPalette[i % colorPalette.length]
+        );
         donutChartInstance.options.plugins.legend.labels.color = getChartTextColor();
         donutChartInstance.update();
 
@@ -1054,42 +1061,82 @@
 
         if (totalCapital <= 0 || portfolioItems.length === 0) return;
 
+        // 산업별 종목과 매수금액을 그룹화
         const industryMap = {};
 
         portfolioItems.forEach(item => {
             const industry = (item.industry || '').trim() || '산업 미지정';
-            industryMap[industry] = (industryMap[industry] || 0) + item.amount;
+
+            if (!industryMap[industry]) {
+                industryMap[industry] = {
+                    total: 0,
+                    stocks: []
+                };
+            }
+
+            industryMap[industry].total += item.amount;
+            industryMap[industry].stocks.push(item);
         });
 
-        const industries = Object.entries(industryMap).sort((a, b) => b[1] - a[1]);
+        // 산업 비중이 큰 순서대로 정렬
+        const industries = Object.entries(industryMap)
+            .sort((a, b) => b[1].total - a[1].total);
 
-        industries.forEach(([industry, amount], index) => {
-            const percentage = (amount / totalCapital) * 100;
+        industries.forEach(([industry, info], index) => {
+            const industryAmount = info.total;
+            const industryPercentage = (industryAmount / totalCapital) * 100;
             const color = colorPalette[index % colorPalette.length];
 
             const segment = document.createElement('div');
             segment.className = 'industry-bar-segment';
-            segment.style.width = percentage + '%';
+            segment.style.width = industryPercentage + '%';
             segment.style.backgroundColor = color;
-            segment.title = `${industry}: ${percentage.toFixed(2)}%`;
 
-            if (percentage >= 8) {
+            // hover tooltip
+            const tooltipLines = [
+                `${industry}`,
+                `산업 비중: ${industryPercentage.toFixed(2)}%`,
+                `산업 매수금액: ${currentCurrency === 'USD'
+                    ? '$ ' + industryAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '₩ ' + Math.round(industryAmount).toLocaleString('ko-KR')}`,
+                '',
+                '포함 종목'
+            ];
+
+            info.stocks
+                .sort((a, b) => b.amount - a.amount)
+                .forEach(stock => {
+                    const stockPercentage = (stock.amount / totalCapital) * 100;
+                    const stockAmount = currentCurrency === 'USD'
+                        ? '$ ' + stock.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '₩ ' + Math.round(stock.amount).toLocaleString('ko-KR');
+
+                    tooltipLines.push(
+                        `${stock.name}  |  ${stockAmount}  |  ${stockPercentage.toFixed(2)}%`
+                    );
+                });
+
+            segment.title = tooltipLines.join('\n');
+
+            if (industryPercentage >= 8) {
                 const text = document.createElement('span');
-                text.textContent = `${industry} ${percentage.toFixed(1)}%`;
+                text.textContent = `${industry} ${industryPercentage.toFixed(1)}%`;
                 segment.appendChild(text);
             }
 
             barEl.appendChild(segment);
 
+            // 범례
             const legendItem = document.createElement('div');
             legendItem.className = 'industry-legend-item';
+            legendItem.title = tooltipLines.join('\n');
 
             const dot = document.createElement('span');
             dot.className = 'industry-legend-dot';
             dot.style.backgroundColor = color;
 
             const label = document.createElement('span');
-            label.textContent = `${industry} ${percentage.toFixed(1)}%`;
+            label.textContent = `${industry} ${industryPercentage.toFixed(1)}%`;
 
             legendItem.appendChild(dot);
             legendItem.appendChild(label);
