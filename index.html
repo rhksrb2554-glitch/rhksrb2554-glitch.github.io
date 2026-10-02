@@ -330,7 +330,7 @@
         .chart-container {
             width: 100%;
             max-width: 280px;
-            margin: 16px auto 20px auto;
+            margin: 32px auto 28px auto;
             position: relative;
         }
 
@@ -398,10 +398,22 @@
             opacity: 0.9;
         }
 
-        .industry-bar-segment { height: 100%; display: flex; align-items: center; justify-content: center; min-width: 0; color: #fff; font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: width 0.25s ease; cursor: default; }
+        .industry-bar-segment { height: 100%; display: flex; align-items: center; justify-content: center; min-width: 0; color: #fff; font-size: 10px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: width 400ms cubic-bezier(0.4, 0, 0.2, 1); cursor: default; }
         .industry-bar-segment span { overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
-        .industry-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 22px; }
-        .industry-legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #ffffff; opacity: 1; white-space: nowrap; }
+        .industry-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 22px; align-items: center; }
+        .industry-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 400; line-height: 1.2; color: #ffffff; opacity: 1; white-space: nowrap; }
+.industry-legend-item {
+    cursor: default;
+    user-select: none;
+    transition: opacity 0.15s ease;
+}
+.industry-legend-item.industry-hidden {
+    opacity: 0.45;
+}
+.industry-legend-item.industry-hidden .industry-legend-label {
+    text-decoration: line-through;
+}
+
         .industry-legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
 
@@ -596,8 +608,8 @@
             label { font-size: 13px; margin-bottom: 6px; }
             .industry-bar { height: 22px; }
             .industry-bar-title { font-size: 15px; color: #ffffff; opacity: 1; }
-            .industry-legend { gap: 8px 10px; margin-top: 22px; }
-            .industry-legend-item { font-size: 12px; color: #ffffff; opacity: 1; }
+            .industry-legend { gap: 8px 12px; margin-top: 22px; align-items: center; }
+            .industry-legend-item { font-size: 11px; font-weight: 400; line-height: 1.2; color: #ffffff; opacity: 1; }
             .guide-list { font-size: 12px; }
         }
     </style>
@@ -755,6 +767,7 @@
     ];
 
     const unallocatedColor = '#6b7280';
+const hiddenIndustries = new Set();
 
     function getChartTextColor() {
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3f4f6' : '#333333';
@@ -946,7 +959,7 @@
                         position: 'bottom',
                         labels: {
                             boxWidth: 10,
-                            padding: 8,
+                            padding: 22,
                             font: { size: 11 },
                             color: getChartTextColor(),
                             generateLabels: function(chart) {
@@ -1108,101 +1121,157 @@
     }
 
     function updateIndustryBar(totalCapital) {
-        const barEl = document.getElementById('industryBar');
-        const legendEl = document.getElementById('industryLegend');
-        const tooltipEl = document.getElementById('industryTooltip');
+    const barEl = document.getElementById('industryBar');
+    const legendEl = document.getElementById('industryLegend');
+    const tooltipEl = document.getElementById('industryTooltip');
 
-        if (!barEl || !legendEl || !tooltipEl) return;
+    if (!barEl || !legendEl || !tooltipEl) return;
 
+    tooltipEl.innerHTML = '';
+    tooltipEl.style.display = 'none';
+
+    if (totalCapital <= 0) {
         barEl.innerHTML = '';
         legendEl.innerHTML = '';
-        tooltipEl.innerHTML = '';
-        tooltipEl.style.display = 'none';
+        return;
+    }
 
-        if (totalCapital <= 0) return;
+    const industryMap = {};
 
-        // 산업별 종목과 매수금액 집계
-        const industryMap = {};
+    portfolioItems.forEach(item => {
+        const industry = (item.industry || '').trim() || '산업 미지정';
 
-        portfolioItems.forEach(item => {
-            const industry = (item.industry || '').trim() || '산업 미지정';
-
-            if (!industryMap[industry]) {
-                industryMap[industry] = {
-                    total: 0,
-                    stocks: []
-                };
-            }
-
-            industryMap[industry].total += item.amount;
-            industryMap[industry].stocks.push(item);
-        });
-
-        // 산업별 합계가 큰 순서
-        const industries = Object.entries(industryMap)
-            .sort((a, b) => b[1].total - a[1].total);
-
-        // 미할당/잔여 자금
-        const investedAmount = portfolioItems.reduce((sum, item) => sum + item.amount, 0);
-        const remainingCash = Math.max(0, totalCapital - investedAmount);
-
-        const segments = [];
-
-        industries.forEach(([industry, info], index) => {
-            segments.push({
-                name: industry,
-                amount: info.total,
-                percentage: (info.total / totalCapital) * 100,
-                color: colorPalette[index % colorPalette.length],
-                stocks: info.stocks
-            });
-        });
-
-        if (remainingCash > 0) {
-            segments.push({
-                name: '미할당/잔여 자금',
-                amount: remainingCash,
-                percentage: (remainingCash / totalCapital) * 100,
-                color: unallocatedColor,
-                stocks: [],
-                isRemaining: true
-            });
+        if (!industryMap[industry]) {
+            industryMap[industry] = {
+                total: 0,
+                stocks: []
+            };
         }
 
-        segments.forEach(segmentData => {
-            const segment = document.createElement('div');
-            segment.className = 'industry-bar-segment';
-            segment.style.width = segmentData.percentage + '%';
-            segment.style.backgroundColor = segmentData.color;
-            segment.dataset.industry = segmentData.name;
+        industryMap[industry].total += item.amount;
+        industryMap[industry].stocks.push(item);
+    });
 
-            if (segmentData.percentage >= 8) {
-                const text = document.createElement('span');
-                text.textContent = `${segmentData.name} ${segmentData.percentage.toFixed(1)}%`;
-                segment.appendChild(text);
+    const industries = Object.entries(industryMap)
+        .sort((a, b) => b[1].total - a[1].total);
+
+    const investedAmount = portfolioItems.reduce(
+        (sum, item) => sum + item.amount,
+        0
+    );
+
+    const remainingCash = Math.max(0, totalCapital - investedAmount);
+
+    const segments = [];
+
+    industries.forEach(([industry, info], index) => {
+        segments.push({
+            name: industry,
+            amount: info.total,
+            color: colorPalette[index % colorPalette.length],
+            stocks: info.stocks,
+            isRemaining: false
+        });
+    });
+
+    if (remainingCash > 0) {
+        segments.push({
+            name: '미할당/잔여 자금',
+            amount: remainingCash,
+            color: unallocatedColor,
+            stocks: [],
+            isRemaining: true
+        });
+    }
+
+    // 현재 표시되는 데이터만을 기준으로 비율을 계산.
+    // Chart.js Doughnut의 hidden 데이터처럼 숨긴 항목은 전체 합계에서 제외한다.
+    const visibleSegments = segments.filter(
+        segment => !hiddenIndustries.has(segment.name)
+    );
+
+    const visibleTotal = visibleSegments.reduce(
+        (sum, segment) => sum + segment.amount,
+        0
+    );
+
+    // 기존 DOM을 재사용하기 위해 현재 세그먼트를 이름으로 보관
+    const existingSegments = {};
+    barEl.querySelectorAll('.industry-bar-segment').forEach(el => {
+        existingSegments[el.dataset.industry] = el;
+    });
+
+    // 기존에 없던 세그먼트만 생성하고, 기존 세그먼트는 그대로 유지
+    segments.forEach((segmentData, index) => {
+        let segment = existingSegments[segmentData.name];
+
+        if (!segment) {
+            segment = document.createElement('div');
+            segment.className = 'industry-bar-segment';
+            segment.dataset.industry = segmentData.name;
+            segment.style.width = '0%';
+            segment.style.backgroundColor = segmentData.color;
+
+            if (segmentData.isRemaining) {
+                segment.dataset.remaining = 'true';
             }
 
-            // 커스텀 hover tooltip
-            segment.addEventListener('mouseenter', (event) => {
+            barEl.appendChild(segment);
+        }
+
+        segment.style.backgroundColor = segmentData.color;
+        segment.innerHTML = '';
+
+        const targetPercentage = hiddenIndustries.has(segmentData.name)
+            ? 0
+            : (visibleTotal > 0
+                ? (segmentData.amount / visibleTotal) * 100
+                : 0);
+
+        if (targetPercentage >= 8) {
+            const text = document.createElement('span');
+            text.textContent =
+                `${segmentData.name} ${(segmentData.amount / totalCapital * 100).toFixed(1)}%`;
+            segment.appendChild(text);
+        }
+
+        // 다음 프레임에 최종 width를 적용하여 숨김/복구 시 부드럽게 애니메이션
+        requestAnimationFrame(() => {
+            segment.style.width = targetPercentage + '%';
+        });
+
+        // 중복 이벤트 방지를 위해 기존 이벤트를 복제하지 않고
+        // 새 세그먼트에만 이벤트를 최초 생성
+        if (!segment.dataset.eventsBound) {
+            segment.addEventListener('mouseenter', () => {
+                const currentName = segment.dataset.industry;
+                const currentSegment = segments.find(s => s.name === currentName);
+                if (!currentSegment || hiddenIndustries.has(currentName)) return;
+
                 const amountText = currentCurrency === 'USD'
-                    ? '$ ' + segmentData.amount.toLocaleString(undefined, {
+                    ? '$ ' + currentSegment.amount.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                     })
-                    : '₩ ' + Math.round(segmentData.amount).toLocaleString('ko-KR');
+                    : '₩ ' + Math.round(currentSegment.amount).toLocaleString('ko-KR');
 
                 let tooltipHTML = `
-                    <div class="industry-tooltip-title">${escapeHtml(segmentData.name)}</div>
+                    <div class="industry-tooltip-title">
+                        ${escapeHtml(currentSegment.name)}
+                    </div>
                     <div class="industry-tooltip-summary">
-                        산업 비중: <strong>${segmentData.percentage.toFixed(2)}%</strong><br>
-                        매수 금액: <strong>${amountText}</strong>
+                        산업 비중:
+                        <strong>${(currentSegment.amount / totalCapital * 100).toFixed(2)}%</strong><br>
+                        매수 금액:
+                        <strong>${amountText}</strong>
                     </div>
                 `;
 
-                if (segmentData.stocks.length > 0) {
-                    tooltipHTML += `<div style="opacity:0.65;margin-bottom:3px;">포함 종목</div>`;
+                if (currentSegment.stocks.length > 0) {
+                    tooltipHTML +=
+                        `<div style="opacity:0.65;margin-bottom:3px;">포함 종목</div>`;
 
-                    segmentData.stocks
+                    currentSegment.stocks
                         .slice()
                         .sort((a, b) => b.amount - a.amount)
                         .forEach(stock => {
@@ -1219,7 +1288,9 @@
 
                             tooltipHTML += `
                                 <div class="industry-tooltip-stock">
-                                    <span class="industry-tooltip-stock-name">${escapeHtml(stock.name)}</span>
+                                    <span class="industry-tooltip-stock-name">
+                                        ${escapeHtml(stock.name)}
+                                    </span>
                                     <span class="industry-tooltip-stock-value">
                                         ${stockAmount} · ${stockPercentage}%
                                     </span>
@@ -1227,7 +1298,8 @@
                             `;
                         });
                 } else {
-                    tooltipHTML += `<div style="opacity:0.65;">현재 투자되지 않은 잔여 자금</div>`;
+                    tooltipHTML +=
+                        `<div style="opacity:0.65;">현재 투자되지 않은 잔여 자금</div>`;
                 }
 
                 tooltipEl.innerHTML = tooltipHTML;
@@ -1236,35 +1308,73 @@
                 const wrapRect = barEl.parentElement.getBoundingClientRect();
                 const segmentRect = segment.getBoundingClientRect();
 
-                let left = segmentRect.left - wrapRect.left + segmentRect.width / 2 - 120;
-                left = Math.max(0, Math.min(left, wrapRect.width - 240));
+                let left =
+                    segmentRect.left -
+                    wrapRect.left +
+                    segmentRect.width / 2 -
+                    120;
+
+                left = Math.max(
+                    0,
+                    Math.min(left, wrapRect.width - 240)
+                );
 
                 tooltipEl.style.left = left + 'px';
-                tooltipEl.style.top = (segmentRect.bottom - wrapRect.top + 8) + 'px';
+                tooltipEl.style.top =
+                    (segmentRect.bottom - wrapRect.top + 8) + 'px';
             });
 
             segment.addEventListener('mouseleave', () => {
                 tooltipEl.style.display = 'none';
             });
 
-            barEl.appendChild(segment);
+            segment.dataset.eventsBound = 'true';
+        }
+    });
 
-            // 범례
-            const legendItem = document.createElement('div');
-            legendItem.className = 'industry-legend-item';
+    // 현재 존재하지 않는 산업 세그먼트 제거
+    barEl.querySelectorAll('.industry-bar-segment').forEach(segment => {
+        if (!segments.some(s => s.name === segment.dataset.industry)) {
+            segment.remove();
+        }
+    });
 
-            const dot = document.createElement('span');
-            dot.className = 'industry-legend-dot';
-            dot.style.backgroundColor = segmentData.color;
+    // 범례는 Chart.js Doughnut Legend와 동일하게
+    // 모든 항목을 유지하고 클릭하면 hidden 상태를 토글한다.
+    legendEl.innerHTML = '';
 
-            const label = document.createElement('span');
-            label.textContent = `${segmentData.name} ${segmentData.percentage.toFixed(1)}%`;
+    segments.forEach(segmentData => {
+        const legendItem = document.createElement('div');
+        legendItem.className = 'industry-legend-item';
 
-            legendItem.appendChild(dot);
-            legendItem.appendChild(label);
-            legendEl.appendChild(legendItem);
+        if (hiddenIndustries.has(segmentData.name)) {
+            legendItem.classList.add('industry-hidden');
+        }
+
+        const dot = document.createElement('span');
+        dot.className = 'industry-legend-dot';
+        dot.style.backgroundColor = segmentData.color;
+
+        const label = document.createElement('span');
+        label.className = 'industry-legend-label';
+        label.textContent =
+            `${segmentData.name} (${(segmentData.amount / totalCapital * 100).toFixed(1)}%)`;
+
+        legendItem.appendChild(dot);
+        legendItem.appendChild(label);
+        legendEl.appendChild(legendItem);
+
+        legendItem.addEventListener('click', () => {
+            if (hiddenIndustries.has(segmentData.name)) {
+                hiddenIndustries.delete(segmentData.name);
+            } else {
+                hiddenIndustries.add(segmentData.name);
+            }
+
+            updateIndustryBar(totalCapital);
         });
-    }
+    });
+}
 
     function renderStockList(totalCapital) {
         const listEl = document.getElementById('stockList');
