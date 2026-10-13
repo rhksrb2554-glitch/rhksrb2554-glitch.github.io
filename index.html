@@ -292,20 +292,6 @@
             text-transform: uppercase;
         }
 
-        .add-stock-row .input-wrapper {
-            min-width: 0;
-        }
-
-        .add-stock-row input[type="text"]#stockName,
-        .add-stock-row input[type="text"]#stockIndustry {
-            text-align: left;
-            padding-right: 14px;
-        }
-
-        .add-stock-row input[type="text"]#stockName {
-            text-transform: uppercase;
-        }
-
         .btn-add {
             background-color: var(--primary-color);
             color: #ffffff;
@@ -1094,10 +1080,17 @@ const hiddenIndustries = new Set();
     function updatePortfolioUI(totalCapital) {
         if (!donutChartInstance) return;
 
-        const sortedItems = [...portfolioItems].sort((a, b) => b.amount - a.amount);
+        // 같은 종목명은 도넛 차트에서만 합산 (목록은 그대로 개별 유지)
+        const mergedMap = {};
+        portfolioItems.forEach(item => {
+            mergedMap[item.name] = (mergedMap[item.name] || 0) + item.amount;
+        });
 
-        const labels = sortedItems.map(item => item.name);
-        const data = sortedItems.map(item => item.amount);
+        const mergedEntries = Object.entries(mergedMap)
+            .sort((a, b) => b[1] - a[1]);
+
+        const labels = mergedEntries.map(([name]) => name);
+        const data = mergedEntries.map(([, amount]) => amount);
 
         const totalInvested = portfolioItems.reduce((sum, item) => sum + item.amount, 0);
         const remainingCash = Math.max(0, totalCapital - totalInvested);
