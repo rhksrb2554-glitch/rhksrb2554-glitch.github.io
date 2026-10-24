@@ -1985,9 +1985,19 @@ const hiddenIndustries = new Set();
         document.getElementById('editStockAmount').addEventListener('input', event => {
             const input = event.target;
             const cursor = input.selectionStart;
-            const before = input.value;
-            input.value = before.replace(/[^0-9.,]/g, '');
-            if (cursor !== null) input.setSelectionRange(Math.min(cursor, input.value.length), Math.min(cursor, input.value.length));
+            const beforeCursor = cursor === null ? input.value : input.value.slice(0, cursor);
+            const digitsBeforeCursor = beforeCursor.replace(/,/g, '').replace(/[^0-9.]/g, '').length;
+            input.value = input.value.replace(/[^0-9.,]/g, '');
+            formatNumberInput(input);
+            if (cursor !== null) {
+                let newCursor = 0;
+                let seen = 0;
+                while (newCursor < input.value.length && seen < digitsBeforeCursor) {
+                    if (input.value[newCursor] !== ',') seen++;
+                    newCursor++;
+                }
+                input.setSelectionRange(newCursor, newCursor);
+            }
         });
 
         formatNumberInput(document.getElementById('positionInvestment'));
