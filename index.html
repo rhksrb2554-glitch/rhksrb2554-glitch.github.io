@@ -449,9 +449,10 @@
         .stock-name {
             font-weight: 700;
             white-space: nowrap;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            max-width: 120px;
+            overflow: visible;
+            text-overflow: clip;
+            max-width: none;
+            flex-shrink: 0;
         }
 
         .stock-industry-list {
@@ -459,11 +460,11 @@
             color: #ff7f00;
             opacity: 0.7;
             white-space: nowrap;
-            overflow: visible;
-            text-overflow: clip;
-            min-width: max-content;
-            max-width: none;
-            flex-shrink: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+            max-width: 100%;
+            flex: 1 1 0;
             text-align: left;
         }
 
@@ -600,6 +601,37 @@
             .industry-legend-item { font-size: 11px; font-weight: 400; line-height: 1.2; color: #ffffff; opacity: 1; }
             .guide-list { font-size: 12px; }
         }
+
+
+        /* 종목 수정 모달 */
+        .edit-modal-backdrop { position:fixed; inset:0; z-index:5000; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(15,23,42,.52); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); }
+        .edit-modal-backdrop.open { display:flex; animation:editFadeIn .18s ease-out; }
+        .edit-modal { width:100%; max-width:390px; background:var(--card-bg); color:var(--text-color); border:1px solid var(--border-color); border-radius:18px; padding:24px; box-shadow:0 24px 70px rgba(0,0,0,.25); box-sizing:border-box; animation:editModalIn .2s ease-out; }
+        .edit-modal-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:20px; }
+        .edit-modal-title { font-size:19px; font-weight:800; letter-spacing:-.4px; }
+        .edit-modal-subtitle { font-size:12px; opacity:.62; margin-top:5px; }
+        .edit-modal-close { border:0; background:var(--bg-color); color:var(--text-color); border-radius:9px; width:32px; height:32px; font-size:19px; cursor:pointer; flex-shrink:0; }
+        .edit-modal-field { display:block; margin-bottom:15px; }
+        .edit-modal-field > span { display:block; font-size:12px; font-weight:700; opacity:.75; margin-bottom:7px; }
+        .edit-modal-input-wrap { position:relative; }
+        .edit-modal-input { width:100%; box-sizing:border-box; border:1px solid var(--border-color); border-radius:10px; padding:12px 13px; background:var(--bg-color); color:var(--text-color); font:inherit; font-size:14px; outline:none; transition:border-color .15s,box-shadow .15s; }
+        .edit-modal-input:focus { border-color:var(--primary-color); box-shadow:0 0 0 3px rgba(59,130,246,.13); }
+        .edit-modal-input.amount { padding-right:58px; }
+        .edit-modal-unit { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:11px; font-weight:700; opacity:.55; pointer-events:none; }
+        .edit-modal-error { min-height:17px; margin:-3px 0 8px; color:var(--accent-color); font-size:12px; }
+        .edit-modal-actions { display:flex; gap:10px; margin-top:5px; }
+        .edit-modal-actions button { flex:1; border-radius:10px; padding:12px; font-size:14px; font-weight:750; cursor:pointer; transition:transform .12s,opacity .12s; }
+        .edit-modal-actions button:active { transform:scale(.98); }
+        .edit-modal-cancel { border:1px solid var(--border-color); background:var(--bg-color); color:var(--text-color); }
+        .edit-modal-save { border:1px solid var(--primary-color); background:var(--primary-color); color:#fff; }
+        .edit-modal-delete { border:1px solid #dc2626; background:#dc2626; color:#fff; }
+        .delete-modal-icon { width:46px; height:46px; display:flex; align-items:center; justify-content:center; border-radius:14px; background:rgba(220,38,38,.10); color:#dc2626; font-size:23px; margin-bottom:16px; }
+        .delete-modal-stock { margin:14px 0 18px; padding:12px 14px; border:1px solid var(--border-color); border-radius:10px; background:var(--bg-color); font-size:14px; font-weight:800; overflow-wrap:anywhere; }
+        .delete-modal-warning { font-size:12px; line-height:1.6; opacity:.68; margin-top:-7px; margin-bottom:18px; }
+        @keyframes editFadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes editModalIn { from { opacity:0; transform:translateY(8px) scale(.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+        @media (max-width:480px) { .edit-modal { padding:20px; border-radius:16px; } }
+
     </style>
 </head>
 <body>
@@ -729,6 +761,36 @@
             <li><strong>적정 포지션 & 진입 금액</strong>: 손절 라인에 도달하더라도 설정한 리스크 금액 이하로만 손실이 제한되도록 안내하는 진입 규모입니다.</li>
         </ul>
     </div>
+</div>
+
+
+<div class="edit-modal-backdrop" id="editModalBackdrop" aria-hidden="true">
+    <section class="edit-modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div class="edit-modal-header">
+            <div><div class="edit-modal-title" id="editModalTitle">종목 정보 수정</div><div class="edit-modal-subtitle">종목명, 산업, 매수 금액을 한 번에 변경합니다.</div></div>
+            <button type="button" class="edit-modal-close" id="editModalClose" aria-label="닫기">×</button>
+        </div>
+        <form id="editStockForm">
+            <label class="edit-modal-field"><span>종목명</span><input class="edit-modal-input" id="editStockName" type="text" autocomplete="off" required></label>
+            <label class="edit-modal-field"><span>산업명</span><input class="edit-modal-input" id="editStockIndustry" type="text" autocomplete="off" placeholder="예: 반도체"></label>
+            <label class="edit-modal-field"><span>매수 금액</span><div class="edit-modal-input-wrap"><input class="edit-modal-input amount" id="editStockAmount" type="text" inputmode="decimal" autocomplete="off" required><span class="edit-modal-unit" id="editStockAmountUnit">USD</span></div></label>
+            <div class="edit-modal-error" id="editStockError" role="alert"></div>
+            <div class="edit-modal-actions"><button type="submit" class="edit-modal-save">변경 사항 저장</button><button type="button" class="edit-modal-cancel" id="editModalCancel">취소</button></div>
+        </form>
+    </section>
+</div>
+
+<div class="edit-modal-backdrop" id="deleteModalBackdrop" aria-hidden="true">
+    <section class="edit-modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+        <div class="delete-modal-icon" aria-hidden="true">⌫</div>
+        <div class="edit-modal-header" style="margin-bottom:12px;">
+            <div><div class="edit-modal-title" id="deleteModalTitle">종목 내역 삭제</div><div class="edit-modal-subtitle">선택한 매수 내역을 삭제합니다.</div></div>
+            <button type="button" class="edit-modal-close" id="deleteModalClose" aria-label="닫기">×</button>
+        </div>
+        <div class="delete-modal-stock" id="deleteModalStockName"></div>
+        <div class="delete-modal-warning">삭제한 내역은 목록과 계산 결과에서 제거됩니다. 이 작업은 되돌릴 수 없습니다.</div>
+        <div class="edit-modal-actions"><button type="button" class="edit-modal-delete" id="deleteModalConfirm">삭제</button><button type="button" class="edit-modal-cancel" id="deleteModalCancel">취소</button></div>
+    </section>
 </div>
 
 <script>
@@ -1033,35 +1095,57 @@ const hiddenIndustries = new Set();
         calculate();
     }
 
+    let editingStockId = null;
+    let editModalPreviousFocus = null;
+    let deletingStockId = null;
+    let deleteModalPreviousFocus = null;
+
+    function openEditStockModal() {
+        const backdrop = document.getElementById('editModalBackdrop');
+        backdrop.classList.add('open');
+        backdrop.setAttribute('aria-hidden', 'false');
+        document.getElementById('editStockAmountUnit').textContent = currentCurrency;
+        document.body.style.overflow = 'hidden';
+        requestAnimationFrame(() => document.getElementById('editStockName').focus());
+    }
+
+    function closeEditStockModal() {
+        const backdrop = document.getElementById('editModalBackdrop');
+        backdrop.classList.remove('open');
+        backdrop.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        editingStockId = null;
+        document.getElementById('editStockError').textContent = '';
+        if (editModalPreviousFocus && typeof editModalPreviousFocus.focus === 'function') editModalPreviousFocus.focus();
+    }
+
     function editStock(id) {
         const item = portfolioItems.find(i => i.id === id);
         if (!item) return;
+        editingStockId = id;
+        editModalPreviousFocus = document.activeElement;
+        document.getElementById('editStockName').value = item.name || '';
+        document.getElementById('editStockIndustry').value = item.industry || '';
+        document.getElementById('editStockAmount').value = Number(item.amount).toLocaleString('en-US', { maximumFractionDigits: 2 });
+        document.getElementById('editStockError').textContent = '';
+        openEditStockModal();
+    }
 
-        const newName = prompt('수정할 종목명을 입력해 주세요:', item.name);
-        if (newName === null) return;
-
-        const trimmedName = newName.trim().toUpperCase();
-        if (!trimmedName) {
-            alert('종목명을 입력해 주세요.');
-            return;
-        }
-
-        const newIndustry = prompt('수정할 산업명을 입력해 주세요:', item.industry || '');
-        if (newIndustry === null) return;
-
-        const newAmountStr = prompt('수정할 매수 금액을 입력해 주세요:', item.amount);
-        if (newAmountStr === null) return;
-
-        const newAmount = parseFloat(newAmountStr.replace(/,/g, '')) || 0;
-        if (newAmount <= 0) {
-            alert('올바른 매수 금액을 입력해 주세요.');
-            return;
-        }
-
-        item.name = trimmedName;
-        item.industry = newIndustry.trim();
-        item.amount = newAmount;
-
+    function saveEditedStock(event) {
+        event.preventDefault();
+        const item = portfolioItems.find(i => i.id === editingStockId);
+        if (!item) { closeEditStockModal(); return; }
+        const name = document.getElementById('editStockName').value.trim().toUpperCase();
+        const industry = document.getElementById('editStockIndustry').value.trim();
+        const amountText = document.getElementById('editStockAmount').value.replace(/,/g, '').trim();
+        const amount = Number(amountText);
+        const errorEl = document.getElementById('editStockError');
+        if (!name) { errorEl.textContent = '종목명을 입력해 주세요.'; document.getElementById('editStockName').focus(); return; }
+        if (!amountText || !Number.isFinite(amount) || amount <= 0) { errorEl.textContent = '매수 금액은 0보다 큰 숫자로 입력해 주세요.'; document.getElementById('editStockAmount').focus(); return; }
+        item.name = name;
+        item.industry = industry;
+        item.amount = amount;
+        closeEditStockModal();
         savePortfolio();
         calculate();
     }
@@ -1069,11 +1153,38 @@ const hiddenIndustries = new Set();
     function deleteStock(id) {
         const item = portfolioItems.find(i => i.id === id);
         if (!item) return;
+        deletingStockId = id;
+        deleteModalPreviousFocus = document.activeElement;
+        document.getElementById('deleteModalStockName').textContent = `${item.name || '이름 없는 종목'} · ${item.industry || '산업 미지정'} · ${formatCurrencyAmount(item.amount)}`;
+        const backdrop = document.getElementById('deleteModalBackdrop');
+        backdrop.classList.add('open');
+        backdrop.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        requestAnimationFrame(() => document.getElementById('deleteModalCancel').focus());
+    }
 
-        if (!confirm(`'${item.name}' 종목을 정말 삭제하시겠습니까?`)) {
-            return;
-        }
+    function formatCurrencyAmount(amount) {
+        const value = Number(amount) || 0;
+        return currentCurrency === 'USD'
+            ? '$ ' + value.toLocaleString('en-US', { maximumFractionDigits: 2 })
+            : '₩ ' + Math.round(value).toLocaleString('ko-KR');
+    }
 
+    function closeDeleteStockModal() {
+        const backdrop = document.getElementById('deleteModalBackdrop');
+        backdrop.classList.remove('open');
+        backdrop.setAttribute('aria-hidden', 'true');
+        deletingStockId = null;
+        document.body.style.overflow = document.getElementById('editModalBackdrop').classList.contains('open') ? 'hidden' : '';
+        if (deleteModalPreviousFocus && typeof deleteModalPreviousFocus.focus === 'function') deleteModalPreviousFocus.focus();
+    }
+
+    function confirmDeleteStock() {
+        if (deletingStockId === null) return;
+        const id = deletingStockId;
+        const exists = portfolioItems.some(item => item.id === id);
+        closeDeleteStockModal();
+        if (!exists) return;
         portfolioItems = portfolioItems.filter(item => item.id !== id);
         savePortfolio();
         calculate();
@@ -1422,9 +1533,9 @@ const hiddenIndustries = new Set();
             header.className = 'stock-group-header';
             header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
             header.innerHTML = `
-                <div class="stock-info" style="min-width:0;gap:16px;flex:1 1 auto;overflow:visible;">
-                    <span class="stock-name" style="max-width:120px;">${escapeHtml(group.name)}</span>
-                    <span class="stock-industry-list" style="max-width:none;min-width:max-content;overflow:visible;text-overflow:clip;flex-shrink:0;">${escapeHtml(group.industry || '산업 미지정')}</span>
+                <div class="stock-info" style="min-width:0;gap:16px;flex:1 1 auto;overflow:hidden;">
+                    <span class="stock-name" style="max-width:none;overflow:visible;text-overflow:clip;flex-shrink:0;">${escapeHtml(group.name)}</span>
+                    <span class="stock-industry-list" style="min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;">${escapeHtml(group.industry || '산업 미지정')}</span>
                 </div>
                 <div class="stock-right" style="gap:12px;">
                     <span class="stock-amount">${totalFormatted}</span>
@@ -1838,6 +1949,31 @@ const hiddenIndustries = new Set();
         initDragAndDropListEvents();
         loadInputs();
         setupNumberFormatting();
+
+        document.getElementById('editStockForm').addEventListener('submit', saveEditedStock);
+        document.getElementById('editModalClose').addEventListener('click', closeEditStockModal);
+        document.getElementById('editModalCancel').addEventListener('click', closeEditStockModal);
+        document.getElementById('editModalBackdrop').addEventListener('click', event => {
+            if (event.target.id === 'editModalBackdrop') closeEditStockModal();
+        });
+        document.getElementById('deleteModalClose').addEventListener('click', closeDeleteStockModal);
+        document.getElementById('deleteModalCancel').addEventListener('click', closeDeleteStockModal);
+        document.getElementById('deleteModalConfirm').addEventListener('click', confirmDeleteStock);
+        document.getElementById('deleteModalBackdrop').addEventListener('click', event => {
+            if (event.target.id === 'deleteModalBackdrop') closeDeleteStockModal();
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            if (document.getElementById('deleteModalBackdrop').classList.contains('open')) closeDeleteStockModal();
+            else if (document.getElementById('editModalBackdrop').classList.contains('open')) closeEditStockModal();
+        });
+        document.getElementById('editStockAmount').addEventListener('input', event => {
+            const input = event.target;
+            const cursor = input.selectionStart;
+            const before = input.value;
+            input.value = before.replace(/[^0-9.,]/g, '');
+            if (cursor !== null) input.setSelectionRange(Math.min(cursor, input.value.length), Math.min(cursor, input.value.length));
+        });
 
         formatNumberInput(document.getElementById('positionInvestment'));
         formatNumberInput(document.getElementById('profitAmount'));
