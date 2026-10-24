@@ -735,7 +735,7 @@
     let currentCurrency = 'USD';
     let portfolioItems = [];
     let donutChartInstance = null;
-    let draggedIndex = null;
+    let draggedGroupKey = null;
     let dropIndicator = null;
 
     const dragTransparentImg = new Image();
@@ -1369,54 +1369,123 @@ const hiddenIndustries = new Set();
     });
 }
 
+    function getStockGroupKey(item) {
+        // 종목명은 대소문자를 구분하지 않고, 종목명과 산업명이 모두 같을 때만 합칩니다.
+        return JSON.stringify([
+            String(item.name || '').trim().toUpperCase(),
+            String(item.industry || '').trim()
+        ]);
+    }
+
+    function getStockGroups() {
+        const groups = new Map();
+        portfolioItems.forEach(item => {
+            const key = getStockGroupKey(item);
+            if (!groups.has(key)) {
+                groups.set(key, {
+                    key,
+                    name: String(item.name || '').trim(),
+                    industry: String(item.industry || '').trim(),
+                    items: [],
+                    totalAmount: 0
+                });
+            }
+            const group = groups.get(key);
+            group.items.push(item);
+            group.totalAmount += Number(item.amount) || 0;
+        });
+        return groups;
+    }
+
     function renderStockList(totalCapital) {
         const listEl = document.getElementById('stockList');
         listEl.innerHTML = '';
+        const stockGroups = getStockGroups();
 
-        portfolioItems.forEach((item, index) => {
-            const percentage = totalCapital > 0 ? ((item.amount / totalCapital) * 100).toFixed(2) : '0.00';
-            const formattedAmount = currentCurrency === 'USD'
-                ? '$ ' + item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                : '₩ ' + Math.round(item.amount).toLocaleString('ko-KR');
+        stockGroups.forEach(group => {
+            const totalPercentage = totalCapital > 0
+                ? (group.totalAmount / totalCapital * 100).toFixed(2)
+                : '0.00';
+            const totalFormatted = currentCurrency === 'USD'
+                ? '$ ' + group.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : '₩ ' + Math.round(group.totalAmount).toLocaleString('ko-KR');
 
             const li = document.createElement('li');
-            li.className = 'stock-item';
-            li.setAttribute('draggable', 'true');
-            li.dataset.index = index;
+            li.className = 'stock-item stock-group-item';
+            li.draggable = true;
+            li.dataset.groupKey = group.key;
+            li.style.cssText = 'display:block;padding:10px 12px;';
 
-            li.innerHTML = `
-                <div class="stock-info">
-                    <div class="stock-main-info">
-                        <span class="stock-name">${escapeHtml(item.name)}</span>
-                    </div>
-                    <span class="stock-amount">${formattedAmount}</span>
-                    <span class="stock-industry-list">${escapeHtml(item.industry || '')}</span>
+            const header = document.createElement('div');
+            header.className = 'stock-group-header';
+            header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
+            header.innerHTML = `
+                <div class="stock-info" style="min-width:0;gap:16px;">
+                    <span class="stock-name" style="max-width:120px;">${escapeHtml(group.name)}</span>
+                    <span class="stock-industry-list" style="max-width:115px;min-width:0;">${escapeHtml(group.industry || '산업 미지정')}</span>
                 </div>
-                <div class="stock-right">
-                    <span class="stock-percent">${percentage}%</span>
-                    <button class="btn-edit" onclick="editStock(${item.id})" title="수정">✏️</button>
-                    <button class="btn-delete" onclick="deleteStock(${item.id})" title="삭제">✕</button>
+                <div class="stock-right" style="gap:12px;">
+                    <span class="stock-amount">${totalFormatted}</span>
+                    <span class="stock-percent">${totalPercentage}%</span>
                     <span class="v-divider"></span>
-                    <button class="btn-drag" title="순서 변경">☰</button>
+                    <button type="button" class="btn-drag" title="종목 그룹 순서 변경" aria-label="종목 그룹 순서 변경">☰</button>
                 </div>
             `;
+            li.appendChild(header);
+
+            const detailsEl = document.createElement('div');
+            detailsEl.className = 'stock-group-details';
+            detailsEl.style.cssText = 'margin-top:8px;border-top:1px solid var(--border-color);padding-top:5px;';
+
+            group.items.forEach((item, index) => {
+                const percentage = totalCapital > 0
+                    ? ((item.amount / totalCapital) * 100).toFixed(2)
+                    : '0.00';
+                const formattedAmount = currentCurrency === 'USD'
+                    ? '$ ' + item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '₩ ' + Math.round(item.amount).toLocaleString('ko-KR');
+
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;';
+                row.innerHTML = `
+                    <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
+                        <span style="font-size:11px;opacity:.7;">${index + 1}차 매수</span>
+                        <span class="stock-amount" style="font-weight:600;opacity:1;">${formattedAmount}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+                        <span class="stock-percent" style="font-size:12px;">${percentage}%</span>
+                        <button type="button" class="btn-edit" data-action="edit" data-id="${item.id}" title="수정">✏️</button>
+                        <button type="button" class="btn-delete" data-action="delete" data-id="${item.id}" title="삭제">✕</button>
+                    </div>
+                `;
+                detailsEl.appendChild(row);
+            });
+
+            li.appendChild(detailsEl);
             listEl.appendChild(li);
+        });
+
+        // 수정/삭제 버튼은 이벤트 위임으로 연결해 재렌더링 후에도 정상 작동하게 합니다.
+        listEl.querySelectorAll('button[data-action]').forEach(button => {
+            button.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                const id = Number(button.dataset.id);
+                if (button.dataset.action === 'edit') editStock(id);
+                if (button.dataset.action === 'delete') deleteStock(id);
+            });
         });
 
         setupDragAndDropItemEvents();
     }
 
     function getDragAfterElement(container, y) {
-        const draggableElements = [...container.querySelectorAll('.stock-item:not(.dragging)')];
-
+        const draggableElements = [...container.querySelectorAll('.stock-group-item:not(.dragging)')];
         return draggableElements.reduce((closest, child) => {
             const box = child.getBoundingClientRect();
             const offset = y - (box.top + box.height / 2);
-            if (offset < 0 && offset > closest.offset) {
-                return { offset: offset, element: child };
-            } else {
-                return closest;
-            }
+            if (offset < 0 && offset > closest.offset) return { offset, element: child };
+            return closest;
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
@@ -1429,104 +1498,83 @@ const hiddenIndustries = new Set();
     }
 
     function removeDropIndicator() {
-        if (dropIndicator && dropIndicator.parentNode) {
-            dropIndicator.parentNode.removeChild(dropIndicator);
+        if (dropIndicator && dropIndicator.parentNode) dropIndicator.parentNode.removeChild(dropIndicator);
+    }
+
+    function moveStockGroupToDropPosition(y) {
+        const list = document.getElementById('stockList');
+        const afterElement = getDragAfterElement(list, y);
+        const indicator = createDropIndicator();
+        if (afterElement == null) list.appendChild(indicator);
+        else list.insertBefore(indicator, afterElement);
+    }
+
+    function finishStockGroupMove(y) {
+        if (draggedGroupKey === null) return;
+        const list = document.getElementById('stockList');
+        const afterElement = getDragAfterElement(list, y);
+        const groups = getStockGroups();
+        const draggedGroup = groups.get(draggedGroupKey);
+        if (!draggedGroup) {
+            removeDropIndicator();
+            draggedGroupKey = null;
+            return;
         }
+
+        const orderedKeys = [...groups.keys()].filter(key => key !== draggedGroupKey);
+        let targetIndex = afterElement ? orderedKeys.indexOf(afterElement.dataset.groupKey) : orderedKeys.length;
+        if (targetIndex < 0) targetIndex = orderedKeys.length;
+        orderedKeys.splice(targetIndex, 0, draggedGroupKey);
+
+        // 그룹을 이동하되, 같은 그룹 안의 개별 매수 건과 그 입력 순서는 유지합니다.
+        portfolioItems = orderedKeys.flatMap(key => groups.get(key).items);
+        const draggingItem = list.querySelector('.stock-group-item.dragging');
+        if (draggingItem) draggingItem.classList.remove('dragging');
+        removeDropIndicator();
+        draggedGroupKey = null;
+        savePortfolio();
+        calculate();
     }
 
     function initDragAndDropListEvents() {
         const list = document.getElementById('stockList');
-        const indicator = createDropIndicator();
 
-        document.addEventListener('dragover', (e) => {
-            if (draggedIndex === null) return;
+        document.addEventListener('dragover', e => {
+            if (draggedGroupKey === null || !list.contains(e.target)) return;
             e.preventDefault();
-            if (e.dataTransfer) {
-                e.dataTransfer.dropEffect = 'move';
-            }
-
-            const afterElement = getDragAfterElement(list, e.clientY);
-            if (afterElement == null) {
-                list.appendChild(indicator);
-            } else {
-                list.insertBefore(indicator, afterElement);
-            }
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            moveStockGroupToDropPosition(e.clientY);
         });
 
-        document.addEventListener('drop', (e) => {
-            if (draggedIndex === null) return;
+        document.addEventListener('drop', e => {
+            if (draggedGroupKey === null || !list.contains(e.target)) return;
             e.preventDefault();
-
-            const afterElement = getDragAfterElement(list, e.clientY);
-            const remainingItems = [...list.querySelectorAll('.stock-item:not(.dragging)')];
-
-            let targetIndex;
-            if (afterElement == null) {
-                targetIndex = remainingItems.length;
-            } else {
-                targetIndex = remainingItems.indexOf(afterElement);
-            }
-
-            const movedItem = portfolioItems.splice(draggedIndex, 1)[0];
-            portfolioItems.splice(targetIndex, 0, movedItem);
-
-            const draggingItem = list.querySelector('.stock-item.dragging');
-            if (draggingItem) draggingItem.classList.remove('dragging');
-
-            removeDropIndicator();
-            draggedIndex = null;
-            savePortfolio();
-            calculate();
+            finishStockGroupMove(e.clientY);
         });
 
-        document.addEventListener('touchmove', (e) => {
-            if (draggedIndex === null) return;
-            const touchLocation = e.touches[0];
-            const afterElement = getDragAfterElement(list, touchLocation.clientY);
-
-            if (afterElement == null) {
-                list.appendChild(indicator);
-            } else {
-                list.insertBefore(indicator, afterElement);
-            }
+        document.addEventListener('touchmove', e => {
+            if (draggedGroupKey === null) return;
+            const touch = e.touches[0];
+            if (!touch) return;
+            moveStockGroupToDropPosition(touch.clientY);
         }, { passive: true });
 
-        document.addEventListener('touchend', (e) => {
-            if (draggedIndex === null) return;
-            const touchLocation = e.changedTouches[0];
-            const afterElement = getDragAfterElement(list, touchLocation.clientY);
-            const remainingItems = [...list.querySelectorAll('.stock-item:not(.dragging)')];
-
-            let targetIndex;
-            if (afterElement == null) {
-                targetIndex = remainingItems.length;
-            } else {
-                targetIndex = remainingItems.indexOf(afterElement);
-            }
-
-            const movedItem = portfolioItems.splice(draggedIndex, 1)[0];
-            portfolioItems.splice(targetIndex, 0, movedItem);
-
-            const draggingItem = list.querySelector('.stock-item.dragging');
-            if (draggingItem) draggingItem.classList.remove('dragging');
-
-            removeDropIndicator();
-            draggedIndex = null;
-
-            savePortfolio();
-            calculate();
+        document.addEventListener('touchend', e => {
+            if (draggedGroupKey === null) return;
+            const touch = e.changedTouches[0];
+            if (!touch) return;
+            finishStockGroupMove(touch.clientY);
         });
     }
 
     function setupDragAndDropItemEvents() {
         const list = document.getElementById('stockList');
-        const items = list.querySelectorAll('.stock-item');
+        const items = list.querySelectorAll('.stock-group-item');
 
-        items.forEach((item, index) => {
+        items.forEach(item => {
             const dragHandle = item.querySelector('.btn-drag');
-
-            item.addEventListener('dragstart', (e) => {
-                draggedIndex = index;
+            item.addEventListener('dragstart', e => {
+                draggedGroupKey = item.dataset.groupKey;
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setDragImage(dragTransparentImg, 0, 0);
                 setTimeout(() => item.classList.add('dragging'), 0);
@@ -1535,13 +1583,15 @@ const hiddenIndustries = new Set();
             item.addEventListener('dragend', () => {
                 item.classList.remove('dragging');
                 removeDropIndicator();
-                draggedIndex = null;
+                draggedGroupKey = null;
             });
 
-            dragHandle.addEventListener('touchstart', (e) => {
-                draggedIndex = index;
-                item.classList.add('dragging');
-            }, { passive: true });
+            if (dragHandle) {
+                dragHandle.addEventListener('touchstart', e => {
+                    draggedGroupKey = item.dataset.groupKey;
+                    item.classList.add('dragging');
+                }, { passive: true });
+            }
         });
     }
 
