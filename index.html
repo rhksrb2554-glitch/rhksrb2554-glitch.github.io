@@ -434,8 +434,9 @@
         .stock-info {
             display: flex;
             align-items: center;
-            gap: 8px;
-            overflow: hidden;
+            gap: 16px;
+            overflow: visible;
+            flex: 1 1 auto;
         }
 
         .stock-main-info {
@@ -456,13 +457,14 @@
         .stock-industry-list {
             font-size: 10px;
             color: #ff7f00;
-            opacity: 0.5;
+            opacity: 0.7;
             white-space: nowrap;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            min-width: 70px;
-            max-width: 130px;
-            text-align: center;
+            overflow: visible;
+            text-overflow: clip;
+            min-width: max-content;
+            max-width: none;
+            flex-shrink: 0;
+            text-align: left;
         }
 
         .stock-amount {
@@ -1420,9 +1422,9 @@ const hiddenIndustries = new Set();
             header.className = 'stock-group-header';
             header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
             header.innerHTML = `
-                <div class="stock-info" style="min-width:0;gap:16px;">
+                <div class="stock-info" style="min-width:0;gap:16px;flex:1 1 auto;overflow:visible;">
                     <span class="stock-name" style="max-width:120px;">${escapeHtml(group.name)}</span>
-                    <span class="stock-industry-list" style="max-width:115px;min-width:0;">${escapeHtml(group.industry || '산업 미지정')}</span>
+                    <span class="stock-industry-list" style="max-width:none;min-width:max-content;overflow:visible;text-overflow:clip;flex-shrink:0;">${escapeHtml(group.industry || '산업 미지정')}</span>
                 </div>
                 <div class="stock-right" style="gap:12px;">
                     <span class="stock-amount">${totalFormatted}</span>
@@ -1448,9 +1450,9 @@ const hiddenIndustries = new Set();
                 const row = document.createElement('div');
                 row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;';
                 row.innerHTML = `
-                    <div style="display:flex;flex-direction:column;gap:3px;min-width:0;">
-                        <span style="font-size:11px;opacity:.7;">${index + 1}차 매수</span>
-                        <span class="stock-amount" style="font-weight:600;opacity:1;">${formattedAmount}</span>
+                    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                        <span style="font-size:11px;opacity:.7;white-space:nowrap;">${index + 1}차 매수</span>
+                        <span class="stock-amount" style="font-weight:600;opacity:1;white-space:nowrap;">${formattedAmount}</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
                         <span class="stock-percent" style="font-size:12px;">${percentage}%</span>
