@@ -246,6 +246,40 @@
             opacity: 0.9;
         }
 
+        /* 롱/숏 토글 */
+        .side-toggle {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 10px;
+            padding: 4px;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .side-btn {
+            border: none;
+            background: none;
+            color: var(--text-color);
+            opacity: 0.5;
+            padding: 8px 0;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .side-btn.active {
+            opacity: 1;
+            color: #ffffff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .side-btn.long.active { background-color: var(--primary-color); }
+        .side-btn.short.active { background-color: #991b1b; }
+
         .add-stock-row {
             display: grid;
             grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) 44px;
@@ -420,6 +454,46 @@
         .stock-item.dragging {
             opacity: 0.25;
             background-color: rgba(59, 130, 246, 0.05);
+        }
+
+        /* 숏 포지션 목록: 검붉은 배경 */
+        .stock-item.short-position {
+            background-color: #3b0d12;
+            border-color: #7f1d1d;
+            color: #fee2e2;
+        }
+
+        .stock-item.short-position.dragging {
+            background-color: rgba(127, 29, 29, 0.35);
+        }
+
+        .stock-item.short-position .stock-percent,
+        .stock-item.short-position .btn-edit {
+            color: #fca5a5;
+        }
+
+        .stock-item.short-position .stock-group-details {
+            border-top-color: #7f1d1d !important;
+        }
+
+        .stock-item.short-position .v-divider {
+            background-color: #7f1d1d;
+        }
+
+        .stock-item.short-position .btn-drag {
+            color: #fee2e2;
+        }
+
+        .short-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background-color: #dc2626;
+            color: #ffffff;
+            font-size: 10px;
+            font-weight: 700;
+            vertical-align: middle;
         }
 
         .drop-indicator {
@@ -722,6 +796,12 @@
 
     <div class="portfolio-section">
         <div class="portfolio-title">🍰 보유 종목 비중</div>
+
+        <div class="side-toggle" id="sideToggle">
+            <button type="button" class="side-btn long active" data-side="long">📈 롱</button>
+            <button type="button" class="side-btn short" data-side="short">📉 숏</button>
+        </div>
+
         <div class="add-stock-row">
             <div class="input-wrapper stock-name-wrapper">
                 <input type="text" id="stockName" placeholder="종목명">
@@ -759,6 +839,7 @@
             <li><strong>최종 손절라인</strong>: 입력한 `ATR(%) × 배수`로 계산되며, 변동성에 맞춘 최적의 손절 폭을 의미합니다.</li>
             <li><strong>허용 최대 손실액</strong>: 총 자금 중 이번 매매로 감수할 리스크(%) 기준 실제 잃어도 되는 금액입니다.</li>
             <li><strong>적정 포지션 & 진입 금액</strong>: 손절 라인에 도달하더라도 설정한 리스크 금액 이하로만 손실이 제한되도록 안내하는 진입 규모입니다.</li>
+            <li><strong>롱 / 숏</strong>: 종목 입력 전 상단 토글로 포지션 방향을 선택합니다. 숏 포지션은 목록에서 검붉은 배경과 SHORT 뱃지로 구분됩니다.</li>
         </ul>
     </div>
 </div>
@@ -767,12 +848,18 @@
 <div class="edit-modal-backdrop" id="editModalBackdrop" aria-hidden="true">
     <section class="edit-modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
         <div class="edit-modal-header">
-            <div><div class="edit-modal-title" id="editModalTitle">종목 정보 수정</div><div class="edit-modal-subtitle">종목명, 산업, 매수 금액을 한 번에 변경합니다.</div></div>
+            <div><div class="edit-modal-title" id="editModalTitle">종목 정보 수정</div><div class="edit-modal-subtitle">종목명, 산업, 포지션, 매수 금액을 한 번에 변경합니다.</div></div>
             <button type="button" class="edit-modal-close" id="editModalClose" aria-label="닫기">×</button>
         </div>
         <form id="editStockForm">
             <label class="edit-modal-field"><span>종목명</span><input class="edit-modal-input" id="editStockName" type="text" autocomplete="off" required></label>
             <label class="edit-modal-field"><span>산업명</span><input class="edit-modal-input" id="editStockIndustry" type="text" autocomplete="off" placeholder="예: 반도체"></label>
+            <label class="edit-modal-field"><span>포지션</span>
+                <select class="edit-modal-input" id="editStockSide">
+                    <option value="long">롱</option>
+                    <option value="short">숏</option>
+                </select>
+            </label>
             <label class="edit-modal-field"><span>매수 금액</span><div class="edit-modal-input-wrap"><input class="edit-modal-input amount" id="editStockAmount" type="text" inputmode="decimal" autocomplete="off" required><span class="edit-modal-unit" id="editStockAmountUnit">USD</span></div></label>
             <div class="edit-modal-error" id="editStockError" role="alert"></div>
             <div class="edit-modal-actions"><button type="submit" class="edit-modal-save">변경 사항 저장</button><button type="button" class="edit-modal-cancel" id="editModalCancel">취소</button></div>
@@ -796,6 +883,7 @@
     Chart.register(ChartDataLabels);
 
     let currentCurrency = 'USD';
+    let currentSide = 'long';
     let portfolioItems = [];
     let donutChartInstance = null;
     let draggedGroupKey = null;
@@ -1083,7 +1171,8 @@ const hiddenIndustries = new Set();
             id: Date.now(),
             name: name,
             industry: industry,
-            amount: amount
+            amount: amount,
+            side: currentSide
         });
 
         nameInput.value = '';
@@ -1125,6 +1214,7 @@ const hiddenIndustries = new Set();
         editModalPreviousFocus = document.activeElement;
         document.getElementById('editStockName').value = item.name || '';
         document.getElementById('editStockIndustry').value = item.industry || '';
+        document.getElementById('editStockSide').value = item.side === 'short' ? 'short' : 'long';
         document.getElementById('editStockAmount').value = Number(item.amount).toLocaleString('en-US', { maximumFractionDigits: 2 });
         document.getElementById('editStockError').textContent = '';
         openEditStockModal();
@@ -1144,6 +1234,7 @@ const hiddenIndustries = new Set();
         item.name = name;
         item.industry = industry;
         item.amount = amount;
+        item.side = document.getElementById('editStockSide').value === 'short' ? 'short' : 'long';
         closeEditStockModal();
         savePortfolio();
         calculate();
@@ -1159,10 +1250,11 @@ const hiddenIndustries = new Set();
         const percentage = totalCapital > 0 ? ((Number(item.amount || 0) / totalCapital) * 100).toFixed(2) : '0.00';
         const sameGroupItems = portfolioItems.filter(entry => getStockGroupKey(entry) === getStockGroupKey(item));
         const purchaseNumber = sameGroupItems.findIndex(entry => entry.id === id) + 1;
+        const shortBadge = item.side === 'short' ? '<span class="short-badge">SHORT</span>' : '';
         stockDetails.innerHTML = `
             <div class="stock-group-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
                 <div class="stock-info" style="min-width:0;gap:12px;flex:1 1 auto;overflow:hidden;">
-                    <span class="stock-name" style="max-width:none;overflow:visible;text-overflow:clip;flex-shrink:0;">${escapeHtml(item.name || '이름 없는 종목')}</span>
+                    <span class="stock-name" style="max-width:none;overflow:visible;text-overflow:clip;flex-shrink:0;">${escapeHtml(item.name || '이름 없는 종목')}${shortBadge}</span>
                     <span class="stock-industry-list" style="min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;">${escapeHtml(item.industry || '산업 미지정')}</span>
                 </div>
                 <div class="stock-right" style="gap:8px;">
@@ -1209,9 +1301,11 @@ const hiddenIndustries = new Set();
         if (!donutChartInstance) return;
 
         // 같은 종목명은 도넛 차트에서만 합산 (목록은 그대로 개별 유지)
+        // 롱/숏은 서로 다른 항목으로 구분
         const mergedMap = {};
         portfolioItems.forEach(item => {
-            mergedMap[item.name] = (mergedMap[item.name] || 0) + item.amount;
+            const label = item.side === 'short' ? item.name + ' (숏)' : item.name;
+            mergedMap[label] = (mergedMap[label] || 0) + item.amount;
         });
 
         const mergedEntries = Object.entries(mergedMap)
@@ -1407,10 +1501,12 @@ const hiddenIndustries = new Set();
                                 ? (stock.amount / totalCapital * 100).toFixed(2)
                                 : '0.00';
 
+                            const sideLabel = stock.side === 'short' ? ' (숏)' : '';
+
                             tooltipHTML += `
                                 <div class="industry-tooltip-stock">
                                     <span class="industry-tooltip-stock-name">
-                                        ${escapeHtml(stock.name)}
+                                        ${escapeHtml(stock.name)}${sideLabel}
                                     </span>
                                     <span class="industry-tooltip-stock-value">
                                         ${stockAmount} · ${stockPercentage}%
@@ -1498,10 +1594,11 @@ const hiddenIndustries = new Set();
 }
 
     function getStockGroupKey(item) {
-        // 종목명은 대소문자를 구분하지 않고, 종목명과 산업명이 모두 같을 때만 합칩니다.
+        // 종목명은 대소문자를 구분하지 않고, 종목명 + 산업명 + 롱/숏이 모두 같을 때만 합칩니다.
         return JSON.stringify([
             String(item.name || '').trim().toUpperCase(),
-            String(item.industry || '').trim()
+            String(item.industry || '').trim(),
+            item.side === 'short' ? 'short' : 'long'
         ]);
     }
 
@@ -1514,6 +1611,7 @@ const hiddenIndustries = new Set();
                     key,
                     name: String(item.name || '').trim(),
                     industry: String(item.industry || '').trim(),
+                    side: item.side === 'short' ? 'short' : 'long',
                     items: [],
                     totalAmount: 0
                 });
@@ -1540,16 +1638,19 @@ const hiddenIndustries = new Set();
 
             const li = document.createElement('li');
             li.className = 'stock-item stock-group-item';
+            if (group.side === 'short') li.classList.add('short-position');
             li.draggable = true;
             li.dataset.groupKey = group.key;
             li.style.cssText = 'display:block;padding:10px 12px;';
+
+            const shortBadge = group.side === 'short' ? '<span class="short-badge">SHORT</span>' : '';
 
             const header = document.createElement('div');
             header.className = 'stock-group-header';
             header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
             header.innerHTML = `
                 <div class="stock-info" style="min-width:0;gap:16px;flex:1 1 auto;overflow:hidden;">
-                    <span class="stock-name" style="max-width:none;overflow:visible;text-overflow:clip;flex-shrink:0;">${escapeHtml(group.name)}</span>
+                    <span class="stock-name" style="max-width:none;overflow:visible;text-overflow:clip;flex-shrink:0;">${escapeHtml(group.name)}${shortBadge}</span>
                     <span class="stock-industry-list" style="min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;">${escapeHtml(group.industry || '산업 미지정')}</span>
                 </div>
                 <div class="stock-right" style="gap:12px;">
@@ -1956,6 +2057,15 @@ const hiddenIndustries = new Set();
 
         document.getElementById('btnUsd').addEventListener('click', () => setCurrency('USD'));
         document.getElementById('btnKrw').addEventListener('click', () => setCurrency('KRW'));
+
+        // 롱/숏 토글
+        document.querySelectorAll('#sideToggle .side-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentSide = btn.dataset.side === 'short' ? 'short' : 'long';
+                document.querySelectorAll('#sideToggle .side-btn').forEach(b =>
+                    b.classList.toggle('active', b === btn));
+            });
+        });
     }
 
     document.addEventListener('DOMContentLoaded', () => {
