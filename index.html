@@ -280,41 +280,40 @@
         .side-btn.long.active { background-color: var(--primary-color); }
         .side-btn.short.active { background-color: #991b1b; }
 
+        /* ===== 종목 추가 영역 =====
+           --field-h : 보유 자금(USD) 입력란의 실제 세로 높이.
+           JS(syncAddRowFieldHeight)가 측정해서 덮어쓰며, + 버튼과 이 영역의 입력란이 모두 이 값을 사용 */
         .add-stock-row {
+            --field-h: 44px;
             display: grid;
-            grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) 44px;
-            grid-template-rows: 44px 44px;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.6fr) var(--field-h);
+            grid-template-rows: var(--field-h) var(--field-h);
             gap: 8px;
             margin-bottom: 16px;
-            align-items: center;
+            align-items: start;
         }
 
-        .add-stock-row .input-wrapper {
-            min-width: 0;
-        }
+        .add-stock-row .input-wrapper { min-width: 0; }
+        .add-stock-row .input-wrapper input { height: var(--field-h); }
 
-        .stock-name-wrapper {
-            grid-column: 1;
-            grid-row: 1;
-        }
-
-        .stock-amount-wrapper {
-            grid-column: 2;
-            grid-row: 1;
-        }
-
-        .stock-industry-wrapper {
-            grid-column: 1 / 3;
-            grid-row: 2;
-        }
+        .stock-name-wrapper     { grid-column: 1;     grid-row: 1; }
+        .stock-amount-wrapper   { grid-column: 2 / 4; grid-row: 1; }
+        .stock-industry-wrapper { grid-column: 1 / 3; grid-row: 2; }
+        .stock-risk-wrapper     { grid-column: 3 / 5; grid-row: 2; }
 
         .add-stock-row .btn-add {
-            grid-column: 3;
-            grid-row: 1 / 3;
-            align-self: center;
-            justify-self: stretch;
-            height: 44px;
+            grid-column: 4;
+            grid-row: 1;
+            width: var(--field-h);
+            height: var(--field-h);
+            min-width: 0;
+            padding: 0;
+            box-sizing: border-box;
+            align-self: start;
+            justify-self: end;
         }
+
+        #stockRisk::placeholder { font-size: 12px; }
 
         .add-stock-row input[type="text"]#stockName,
         .add-stock-row input[type="text"]#stockIndustry {
@@ -347,11 +346,39 @@
             opacity: 0.9;
         }
 
+        /* 차트 래퍼: 총 오픈리스크 배지를 카드 오른쪽 끝에 붙이기 위한 용도.
+           래퍼에는 margin/padding/border가 없어서 도넛 차트의 위치·크기는 그대로입니다. */
+        .chart-area {
+            position: relative;
+            width: 100%;
+        }
+
         .chart-container {
             width: 100%;
             max-width: 280px;
             margin: 16px auto 20px auto;
             position: relative;
+        }
+
+        /* 총 오픈리스크: 오른쪽 끝, 라벨과 숫자 같은 크기 */
+        .total-risk-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            text-align: right;
+            line-height: 1.3;
+            pointer-events: none;
+            z-index: 2;
+            color: var(--accent-color);
+            font-size: 15px;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+        .total-risk-label,
+        .total-risk-value {
+            font-size: 15px;
+            font-weight: 800;
+            color: var(--accent-color);
         }
 
         .stock-list {
@@ -547,6 +574,18 @@
             opacity: 0.7;
         }
 
+        /* 차수별 오픈리스크 R (빨간색) */
+        .stock-risk {
+            color: var(--accent-color);
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .stock-item.short-position .stock-risk {
+            color: #ff8a8a;
+        }
+
         .stock-right {
             display: flex;
             align-items: center;
@@ -661,8 +700,8 @@
             .currency-toggle-box { top: 22px; right: 14px; }
             .split-inputs { gap: 8px; }
             .add-stock-row {
-                grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.3fr) 44px;
-                grid-template-rows: 44px 44px;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 0.6fr) var(--field-h);
+                grid-template-rows: var(--field-h) var(--field-h);
             }
             input { padding: 10px 45px 10px 10px; font-size: 15px; }
             input.input-short { padding-right: 30px; }
@@ -813,11 +852,21 @@
             <div class="input-wrapper stock-industry-wrapper">
                 <input type="text" id="stockIndustry" placeholder="산업명">
             </div>
+            <div class="input-wrapper stock-risk-wrapper">
+                <input type="text" id="stockRisk" class="input-short" inputmode="decimal" placeholder="오픈리스크">
+                <span class="unit unit-short">%</span>
+            </div>
             <button type="button" class="btn-add" id="btnAddStock" onclick="addStock()">+</button>
         </div>
 
-        <div class="chart-container">
-            <canvas id="portfolioChart"></canvas>
+        <div class="chart-area">
+            <div class="chart-container">
+                <canvas id="portfolioChart"></canvas>
+            </div>
+            <div class="total-risk-badge">
+                <div class="total-risk-label">총 오픈리스크</div>
+                <div class="total-risk-value" id="totalRiskValue">0.00%</div>
+            </div>
         </div>
 
         <ul class="stock-list" id="stockList"></ul>
@@ -840,6 +889,7 @@
             <li><strong>허용 최대 손실액</strong>: 총 자금 중 이번 매매로 감수할 리스크(%) 기준 실제 잃어도 되는 금액입니다.</li>
             <li><strong>적정 포지션 & 진입 금액</strong>: 손절 라인에 도달하더라도 설정한 리스크 금액 이하로만 손실이 제한되도록 안내하는 진입 규모입니다.</li>
             <li><strong>롱 / 숏</strong>: 종목 입력 전 상단 토글로 포지션 방향을 선택합니다. 숏 포지션은 목록에서 검붉은 배경과 SHORT 뱃지로 구분됩니다.</li>
+            <li><strong>오픈리스크</strong>: 매수 건마다 총 자금 대비 손절 시 손실 %를 입력하면 1차·2차 매수 행에 빨간색 R로 표시되고, 전체 합계는 도넛 차트 오른쪽 상단에 나타납니다.</li>
         </ul>
     </div>
 </div>
@@ -848,7 +898,7 @@
 <div class="edit-modal-backdrop" id="editModalBackdrop" aria-hidden="true">
     <section class="edit-modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
         <div class="edit-modal-header">
-            <div><div class="edit-modal-title" id="editModalTitle">종목 정보 수정</div><div class="edit-modal-subtitle">종목명, 산업, 포지션, 매수 금액을 한 번에 변경합니다.</div></div>
+            <div><div class="edit-modal-title" id="editModalTitle">종목 정보 수정</div><div class="edit-modal-subtitle">종목명, 산업, 포지션, 매수 금액, 오픈리스크를 한 번에 변경합니다.</div></div>
             <button type="button" class="edit-modal-close" id="editModalClose" aria-label="닫기">×</button>
         </div>
         <form id="editStockForm">
@@ -861,6 +911,7 @@
                 </select>
             </label>
             <label class="edit-modal-field"><span>매수 금액</span><div class="edit-modal-input-wrap"><input class="edit-modal-input amount" id="editStockAmount" type="text" inputmode="decimal" autocomplete="off" required><span class="edit-modal-unit" id="editStockAmountUnit">USD</span></div></label>
+            <label class="edit-modal-field"><span>오픈리스크</span><div class="edit-modal-input-wrap"><input class="edit-modal-input amount" id="editStockRisk" type="text" inputmode="decimal" autocomplete="off" placeholder="0"><span class="edit-modal-unit">%</span></div></label>
             <div class="edit-modal-error" id="editStockError" role="alert"></div>
             <div class="edit-modal-actions"><button type="submit" class="edit-modal-save">변경 사항 저장</button><button type="button" class="edit-modal-cancel" id="editModalCancel">취소</button></div>
         </form>
@@ -906,6 +957,25 @@
     const unallocatedColor = '#6b7280';
 const hiddenIndustries = new Set();
 
+    // ===== 오픈리스크 헬퍼 =====
+    function getItemRisk(item) {
+        const r = Number(item && item.risk);
+        return Number.isFinite(r) && r > 0 ? r : 0;
+    }
+
+    function formatRisk(v) {
+        return (Number(v) || 0).toFixed(2) + '%';
+    }
+
+    // + 버튼과 종목 추가 영역 입력란의 높이를 "보유 자금(USD)" 입력란의 실제 높이에 맞춘다.
+    function syncAddRowFieldHeight() {
+        const row = document.querySelector('.add-stock-row');
+        const ref = document.getElementById('totalCapital');
+        if (!row || !ref) return;
+        const h = ref.getBoundingClientRect().height;
+        if (h > 0) row.style.setProperty('--field-h', h + 'px');
+    }
+
     function getChartTextColor() {
         return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? '#f3f4f6' : '#333333';
     }
@@ -942,7 +1012,8 @@ const hiddenIndustries = new Set();
             'riskPercent',
             'atrPercent',
             'atrMultiplier',
-            'stockAmount'
+            'stockAmount',
+            'stockRisk'
         ];
 
         ids.forEach(id => {
@@ -957,7 +1028,7 @@ const hiddenIndustries = new Set();
             });
 
             input.addEventListener('input', () => {
-                if (['riskPercent', 'atrPercent', 'atrMultiplier'].includes(id)) {
+                if (['riskPercent', 'atrPercent', 'atrMultiplier', 'stockRisk'].includes(id)) {
                     let cleaned = input.value.replace(/-/g, '').replace(/[^\d.]/g, '');
                     const firstDot = cleaned.indexOf('.');
                     if (firstDot >= 0) {
@@ -997,7 +1068,8 @@ const hiddenIndustries = new Set();
             input.addEventListener('blur', () => {
                 const trimmed = input.value.replace(/,/g, '').replace(/\s+/g, '').trim();
                 if (trimmed === '' || trimmed === '-') {
-                    input.value = '0';
+                    // 오픈리스크는 비워 두면 placeholder가 보이도록 빈 값 유지
+                    input.value = (id === 'stockRisk') ? '' : '0';
                 } else if (['positionInvestment', 'profitAmount', 'totalCapital', 'stockAmount'].includes(id)) {
                     formatNumberInput(input);
                 }
@@ -1150,10 +1222,12 @@ const hiddenIndustries = new Set();
         const nameInput = document.getElementById('stockName');
         const industryInput = document.getElementById('stockIndustry');
         const amountInput = document.getElementById('stockAmount');
+        const riskInput = document.getElementById('stockRisk');
 
         const name = nameInput.value.trim().toUpperCase();
         const industry = industryInput.value.trim();
         const amount = parseFloat(amountInput.value.replace(/,/g, '')) || 0;
+        const risk = Math.max(0, parseFloat(riskInput.value) || 0);
 
         if (!name) {
             alert('종목명을 입력해 주세요.');
@@ -1172,12 +1246,14 @@ const hiddenIndustries = new Set();
             name: name,
             industry: industry,
             amount: amount,
+            risk: risk,
             side: currentSide
         });
 
         nameInput.value = '';
         industryInput.value = '';
         amountInput.value = '0';
+        riskInput.value = '';
 
         savePortfolio();
         calculate();
@@ -1216,6 +1292,7 @@ const hiddenIndustries = new Set();
         document.getElementById('editStockIndustry').value = item.industry || '';
         document.getElementById('editStockSide').value = item.side === 'short' ? 'short' : 'long';
         document.getElementById('editStockAmount').value = Number(item.amount).toLocaleString('en-US', { maximumFractionDigits: 2 });
+        document.getElementById('editStockRisk').value = item.risk ? String(item.risk) : '';
         document.getElementById('editStockError').textContent = '';
         openEditStockModal();
     }
@@ -1231,9 +1308,17 @@ const hiddenIndustries = new Set();
         const errorEl = document.getElementById('editStockError');
         if (!name) { errorEl.textContent = '종목명을 입력해 주세요.'; document.getElementById('editStockName').focus(); return; }
         if (!amountText || !Number.isFinite(amount) || amount <= 0) { errorEl.textContent = '매수 금액은 0보다 큰 숫자로 입력해 주세요.'; document.getElementById('editStockAmount').focus(); return; }
+        const riskText = document.getElementById('editStockRisk').value.trim();
+        const risk = riskText === '' ? 0 : Number(riskText);
+        if (!Number.isFinite(risk) || risk < 0) {
+            errorEl.textContent = '오픈리스크는 0 이상의 숫자로 입력해 주세요.';
+            document.getElementById('editStockRisk').focus();
+            return;
+        }
         item.name = name;
         item.industry = industry;
         item.amount = amount;
+        item.risk = risk;
         item.side = document.getElementById('editStockSide').value === 'short' ? 'short' : 'long';
         closeEditStockModal();
         savePortfolio();
@@ -1251,6 +1336,8 @@ const hiddenIndustries = new Set();
         const sameGroupItems = portfolioItems.filter(entry => getStockGroupKey(entry) === getStockGroupKey(item));
         const purchaseNumber = sameGroupItems.findIndex(entry => entry.id === id) + 1;
         const shortBadge = item.side === 'short' ? '<span class="short-badge">SHORT</span>' : '';
+        const itemRisk = getItemRisk(item);
+        const riskHtml = itemRisk > 0 ? `<span class="stock-risk">R ${formatRisk(itemRisk)}</span>` : '';
         stockDetails.innerHTML = `
             <div class="stock-group-header" style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
                 <div class="stock-info" style="min-width:0;gap:12px;flex:1 1 auto;overflow:hidden;">
@@ -1259,6 +1346,7 @@ const hiddenIndustries = new Set();
                 </div>
                 <div class="stock-right" style="gap:8px;">
                     <span class="stock-amount">${formatCurrencyAmount(item.amount)}</span>
+                    ${riskHtml}
                     <span class="stock-percent">${percentage}%</span>
                 </div>
             </div>
@@ -1299,6 +1387,11 @@ const hiddenIndustries = new Set();
 
     function updatePortfolioUI(totalCapital) {
         if (!donutChartInstance) return;
+
+        // 총 오픈리스크 (도넛 차트 오른쪽 상단 배지)
+        const totalRisk = portfolioItems.reduce((s, i) => s + getItemRisk(i), 0);
+        const totalRiskEl = document.getElementById('totalRiskValue');
+        if (totalRiskEl) totalRiskEl.textContent = formatRisk(totalRisk);
 
         // 같은 종목명은 도넛 차트에서만 합산 (목록은 그대로 개별 유지)
         // 롱/숏은 서로 다른 항목으로 구분
@@ -1645,6 +1738,7 @@ const hiddenIndustries = new Set();
 
             const shortBadge = group.side === 'short' ? '<span class="short-badge">SHORT</span>' : '';
 
+            // 종목 헤더: 종목 전체 R은 표시하지 않음
             const header = document.createElement('div');
             header.className = 'stock-group-header';
             header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:8px;';
@@ -1674,6 +1768,9 @@ const hiddenIndustries = new Set();
                     ? '$ ' + item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     : '₩ ' + Math.round(item.amount).toLocaleString('ko-KR');
 
+                const itemRisk = getItemRisk(item);
+
+                // R은 1차·2차 매수 행의 오른쪽(퍼센트 앞)에만 표시
                 const row = document.createElement('div');
                 row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 0;';
                 row.innerHTML = `
@@ -1682,6 +1779,7 @@ const hiddenIndustries = new Set();
                         <span class="stock-amount" style="font-weight:600;opacity:1;white-space:nowrap;">${formattedAmount}</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:3px;flex-shrink:0;">
+                        ${itemRisk > 0 ? `<span class="stock-risk" style="margin-right:10px;">R ${formatRisk(itemRisk)}</span>` : ''}
                         <span class="stock-percent" style="font-size:12px;">${percentage}%</span>
                         <button type="button" class="btn-edit" data-action="edit" data-id="${item.id}" title="수정">✏️</button>
                         <button type="button" class="btn-delete" data-action="delete" data-id="${item.id}" title="삭제">✕</button>
@@ -2110,10 +2208,23 @@ const hiddenIndustries = new Set();
             }
         });
 
+        // 수정 모달 오픈리스크 입력: 숫자와 소수점 하나만 허용
+        document.getElementById('editStockRisk').addEventListener('input', e => {
+            let v = e.target.value.replace(/[^\d.]/g, '');
+            const i = v.indexOf('.');
+            if (i >= 0) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/\./g, '');
+            e.target.value = v;
+        });
+
         formatNumberInput(document.getElementById('positionInvestment'));
         formatNumberInput(document.getElementById('profitAmount'));
         formatNumberInput(document.getElementById('totalCapital'));
         formatNumberInput(document.getElementById('stockAmount'));
+
+        // + 버튼 / 종목 추가 입력란 높이를 보유 자금(USD) 입력란 높이에 맞춤
+        syncAddRowFieldHeight();
+        window.addEventListener('load', syncAddRowFieldHeight);
+        window.addEventListener('resize', syncAddRowFieldHeight);
 
         calculate();
     });
